@@ -5,7 +5,7 @@ export function TopBar({ isConnected }: { isConnected: boolean }) {
   const [time, setTime] = useState('')
 
   useEffect(() => {
-    const tick = () => setTime(new Date().toISOString().slice(11, 19) + ' UTC')
+    const tick = () => setTime(new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false }) + ' KST')
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
