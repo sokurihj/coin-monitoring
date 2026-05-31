@@ -1,4 +1,4 @@
-export const MONITORED_COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'DOT']
+export const MONITORED_COINS = ['BTC', 'ETH', 'SOL']
 
 export const SWAP_INSTRUMENTS = MONITORED_COINS.map(c => `${c}-USDT-SWAP`)
 
@@ -16,13 +16,6 @@ export const CT_VAL_FALLBACK: Record<string, number> = {
   'BTC-USDT-SWAP': 0.01,
   'ETH-USDT-SWAP': 0.1,
   'SOL-USDT-SWAP': 1,
-  'BNB-USDT-SWAP': 0.1,
-  'XRP-USDT-SWAP': 10,
-  'DOGE-USDT-SWAP': 100,
-  'ADA-USDT-SWAP': 10,
-  'AVAX-USDT-SWAP': 0.1,
-  'LINK-USDT-SWAP': 1,
-  'DOT-USDT-SWAP': 1,
 }
 
 export const POLL_INTERVAL = Number(process.env.NEXT_PUBLIC_POLL_INTERVAL ?? 5000)

@@ -83,20 +83,39 @@ export interface RawInstrument {
   maxStopSz: string
 }
 
-export interface SmartMoneyTrader {
-  uniqueName: string
+// copytrading/public-lead-traders 응답: data[0].ranks[]
+export interface RawLeadTrader {
+  uniqueCode: string
+  portLink: string
   nickName: string
-  pnl: string
-  pnlRatio: string
-  winRatio: string
-  tradeCount: string
-  followers: string
+  pnl: string        // 절대 USD PnL
+  pnlRatio: string   // 수익률 (16.04 = 16.04%)
+  winRatio: string   // 승률 (0~1)
+  copyTraderNum: string // 현재 팔로워 수
+  aum: string           // AUM USD
 }
 
+// rubik/stat/contracts/long-short-account-ratio-contract-top-trader 응답
+// data는 [timestamp, ratio] 튜플 배열
+export type RawTopTraderRatio = [string, string]
+
+// 가공된 SmartMoney 신호 (프론트 표시용)
 export interface SmartMoneySignal {
-  instId: string
-  longRatio: string
-  shortRatio: string
-  longShortRatio: string
-  ts: string
+  coin: string
+  longRatio: number   // 0~1
+  shortRatio: number  // 0~1
+  ratio: number       // longShortAcctRatio
+  ts: number
+}
+
+// 가공된 트레이더 정보 (프론트 표시용)
+export interface SmartMoneyTrader {
+  id: string
+  nickName: string
+  profit: number
+  profitRate: number
+  winRate: number
+  followers: number
+  aum: number
+  portLink: string
 }
