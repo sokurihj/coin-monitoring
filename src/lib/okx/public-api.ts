@@ -1,4 +1,4 @@
-import { RawFundingRate, RawInstrument, RawOpenInterest, RawTicker, RawTrade } from '@/types/okx'
+import { RawCandle, RawFundingRate, RawInstrument, RawLiquidation, RawOpenInterest, RawOrderBook, RawTicker, RawTrade } from '@/types/okx'
 import { okxFetch } from './client'
 
 export const getTrades = (instId: string, limit = 100) =>
@@ -18,3 +18,20 @@ export const getFundingRate = (instId: string) =>
 
 export const getSwapInstruments = () =>
   okxFetch<RawInstrument>('/api/v5/public/instruments', { instType: 'SWAP' })
+
+export const getLiquidations = (limit = 20) =>
+  okxFetch<RawLiquidation>('/api/v5/public/liquidation-orders', {
+    instType: 'SWAP',
+    state: 'filled',
+    limit: String(limit),
+  })
+
+export const getOrderBook = (instId: string, sz = 20) =>
+  okxFetch<RawOrderBook>('/api/v5/market/books', { instId, sz: String(sz) })
+
+export const getCandles = (instId: string, bar = '1m', limit = 100) =>
+  okxFetch<RawCandle>('/api/v5/market/candles', {
+    instId,
+    bar,
+    limit: String(limit),
+  })

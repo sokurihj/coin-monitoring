@@ -118,3 +118,33 @@ export interface SmartMoneyTrader {
   aum: number
   portLink: string
 }
+
+// 청산 주문 개별 상세
+export interface RawLiquidationDetail {
+  instId: string
+  posSide: 'long' | 'short' | 'net'
+  side: 'buy' | 'sell'
+  bkPx: string      // 파산 가격
+  sz: string        // 계약 수
+  bkLoss: string    // 손실 USD
+  actualSz: string
+  ts: string
+}
+
+// 청산 주문 그룹 (uly 기준)
+export interface RawLiquidation {
+  instType: string
+  uly: string
+  instFamily: string
+  details: RawLiquidationDetail[]
+}
+
+// 오더북 entry: [가격, 수량, 청산수량, 주문수]
+export interface RawOrderBook {
+  asks: string[][]
+  bids: string[][]
+  ts: string
+}
+
+// 캔들: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm]
+export type RawCandle = [string, string, string, string, string, string, string, string, string]
