@@ -20,6 +20,7 @@ export function parseSignal(coin: string, ratios: RawTopTraderRatio[]): SmartMon
   if (!ratios.length) return null
   const [ts, rawRatio] = ratios[0] // 가장 최신 데이터
   const ratio = parseFloat(rawRatio)
+  if (isNaN(ratio)) return null
   const longRatio = ratio / (1 + ratio)
   return {
     coin,

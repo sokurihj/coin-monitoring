@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { hasApiKey } from '@/lib/okx/client'
 import { getTopTraderLongShortRatio, parseSignal } from '@/lib/okx/smartmoney-api'
+import { MONITORED_COINS } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,10 +10,8 @@ export async function GET() {
     return NextResponse.json({ available: false })
   }
 
-  const coins = ['BTC', 'ETH', 'SOL']
-
   const results = await Promise.allSettled(
-    coins.map(async (coin) => {
+    MONITORED_COINS.map(async (coin) => {
       const ratios = await getTopTraderLongShortRatio(`${coin}-USDT-SWAP`)
       return parseSignal(coin, ratios)
     })

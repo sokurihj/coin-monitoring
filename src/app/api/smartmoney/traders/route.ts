@@ -9,8 +9,11 @@ export async function GET() {
     return NextResponse.json({ available: false })
   }
 
-  const raw = await getLeadTraders()
-  const traders = raw.slice(0, 5).map(parseTrader)
-
-  return NextResponse.json({ available: true, traders })
+  try {
+    const raw = await getLeadTraders()
+    const traders = raw.slice(0, 5).map(parseTrader)
+    return NextResponse.json({ available: true, traders })
+  } catch {
+    return NextResponse.json({ available: true, traders: [] })
+  }
 }

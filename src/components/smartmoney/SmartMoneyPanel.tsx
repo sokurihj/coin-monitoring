@@ -61,7 +61,7 @@ function TraderRow({ trader }: { trader: SmartMoneyTrader }) {
 }
 
 export function SmartMoneyPanel() {
-  const { data: signalData, isLoading: loadingSignals } = useQuery({
+  const { data: signalData, isLoading: loadingSignals, isError: signalError } = useQuery({
     queryKey: ['smartmoney-signals'],
     queryFn: async () => {
       const res = await fetch('/api/smartmoney/signals')
@@ -80,6 +80,26 @@ export function SmartMoneyPanel() {
     refetchInterval: 120_000,
     staleTime: 115_000,
   })
+
+  if (signalError) {
+    return (
+      <div className="p-4">
+        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>SMART MONEY</div>
+        <div
+          className="rounded p-3 text-center"
+          style={{ background: 'var(--bg-row-hover)', border: '1px solid var(--border)' }}
+        >
+          <div className="text-lg mb-2">⚠️</div>
+          <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+            데이터 로드 실패
+          </p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            잠시 후 자동으로 재시도합니다
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (!signalData?.available && !loadingSignals) {
     return (
