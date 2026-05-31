@@ -1,5 +1,6 @@
 'use client'
 import { useWhaleStream } from '@/hooks/useWhaleStream'
+import { useCvd } from '@/hooks/useCvd'
 import { TopBar } from './TopBar'
 import { CoinTabBar } from './CoinTabBar'
 import { MarketOverviewStrip } from '../market/MarketOverviewStrip'
@@ -7,9 +8,11 @@ import { FundingRateBar } from '../market/FundingRateBar'
 import { WhaleFeed } from '../whale/WhaleFeed'
 import { OIMoversTable } from '../oi/OIMoversTable'
 import { SmartMoneyPanel } from '../smartmoney/SmartMoneyPanel'
+import { CvdChart } from '../market/CvdChart'
 
 export function DashboardShell() {
   const { isConnected } = useWhaleStream()
+  useCvd()
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -31,6 +34,7 @@ export function DashboardShell() {
           <FundingRateBar />
           <OIMoversTable />
           <SmartMoneyPanel />
+          <CvdChart />
         </div>
       </div>
     </div>

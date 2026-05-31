@@ -40,6 +40,12 @@ export interface TickerInfo {
   vol24h: number
 }
 
+export interface CvdSnapshot {
+  coin: string
+  delta: number       // 이번 폴링 주기의 buyUsd − sellUsd
+  fetchedAt: number
+}
+
 export interface AlertSettings {
   enabled: boolean
   soundEnabled: boolean
