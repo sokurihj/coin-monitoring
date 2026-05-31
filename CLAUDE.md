@@ -42,7 +42,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── hooks/useFundingRates.ts     # 10s 폴링
 
 상태 관리
-  └── store/whaleStore.ts          # Zustand — 최신 200건 유지, tradeId 중복 제거
+  └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
   └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
 ```
 
@@ -66,7 +66,7 @@ app/dashboard/page.tsx
 **고래 감지** (`src/lib/whale-detector.ts`):
 - OKX SWAP 계약 단위(ctVal)를 통해 USD 환산: `체결수량(계약) × ctVal × 가격`
 - ctVal은 instruments API에서 1시간 TTL로 인메모리 캐시, `CT_VAL_FALLBACK`이 fallback
-- `WHALE_THRESHOLDS` (medium $20K / large $100K / mega $500K), 환경변수로 오버라이드 가능
+- `WHALE_THRESHOLDS` (medium $100K / large $300K / mega $1M), 환경변수로 오버라이드 가능
 - 단건 체결 기준 (여러 체결 합산 없음)
 
 **Rate limit 방어**: 모든 Route Handler에서 `pLimit(5)` 사용
