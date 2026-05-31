@@ -1,1 +1,102 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 @AGENTS.md
+
+## 프로젝트 개요
+
+**Whale Radar** — OKX 선물(SWAP) 시장의 실시간 고래 거래 추적 대시보드.
+폴링 기반으로 고래 체결, OI 변동, 펀딩비, 스마트머니 신호를 모니터링한다.
+
+## 명령어
+
+```bash
+npm run dev      # 개발 서버 (http://localhost:3000)
+npm run build    # 프로덕션 빌드
+npm run lint     # ESLint 검사
+```
+
+## 아키텍처
+
+### 데이터 흐름
+
+```
+OKX Public API (https://www.okx.com/api/v5/...)
+  └── src/lib/okx/client.ts        # okxFetch() — 공통 fetch 래퍼
+                                   # okxAuthFetch() — HMAC-SHA256 인증 래퍼
+  └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
+  └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
+
+Next.js Route Handlers (서버 사이드, force-dynamic)
+  └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
+  └── /api/oi-movers               # OI + 티커 + 펀딩비 집계 → OIMover[]
+  └── /api/funding                 # 펀딩비 목록 → FundingRateInfo[]
+  └── /api/tickers                 # 티커 목록
+  └── /api/smartmoney/signals      # 상위 트레이더 롱/숏 비율 (BTC, ETH, SOL)
+  └── /api/smartmoney/traders      # OKX 카피트레이딩 리더 트레이더 상위 5명
+
+클라이언트 (React Query 폴링)
+  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore에 누적
+  └── hooks/useOIMovers.ts         # 30s 폴링
+  └── hooks/useFundingRates.ts     # 10s 폴링
+
+상태 관리
+  └── store/whaleStore.ts          # Zustand — 최신 200건 유지, tradeId 중복 제거
+  └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
+```
+
+### 컴포넌트 계층
+
+```
+app/dashboard/page.tsx
+  └── DashboardShell               # 레이아웃 루트, useWhaleStream 초기화
+      ├── TopBar                   # 연결 상태 표시
+      ├── MarketOverviewStrip      # 코인별 가격/변동률 띠
+      ├── CoinTabBar               # 코인 필터 탭
+      ├── WhaleFeed (좌)           # 고래 체결 피드
+      └── 사이드패널 (우, w-64)
+          ├── FundingRateBar
+          ├── OIMoversTable
+          └── SmartMoneyPanel      # TOP TRADER L/S + LEAD TRADERS
+```
+
+### 핵심 로직
+
+**고래 감지** (`src/lib/whale-detector.ts`):
+- OKX SWAP 계약 단위(ctVal)를 통해 USD 환산: `체결수량(계약) × ctVal × 가격`
+- ctVal은 instruments API에서 1시간 TTL로 인메모리 캐시, `CT_VAL_FALLBACK`이 fallback
+- `WHALE_THRESHOLDS` (medium $20K / large $100K / mega $500K), 환경변수로 오버라이드 가능
+- 단건 체결 기준 (여러 체결 합산 없음)
+
+**Rate limit 방어**: 모든 Route Handler에서 `pLimit(5)` 사용
+
+**SmartMoney** (`src/lib/okx/smartmoney-api.ts`):
+- `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` 환경변수 없으면 패널 비활성
+- 인증: HMAC-SHA256 서명 (`okxAuthFetch` in `client.ts`)
+- signals: `/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader` (1H, BTC/ETH/SOL)
+- traders: `/api/v5/copytrading/public-lead-traders` → `data[0].ranks[]` 구조
+
+## 환경변수
+
+`.env.local`에 설정:
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `WHALE_MEGA_USD` | 500000 | 메가 고래 임계값 |
+| `WHALE_LARGE_USD` | 100000 | 대형 고래 임계값 |
+| `WHALE_MEDIUM_USD` | 20000 | 중형 고래 임계값 |
+| `NEXT_PUBLIC_POLL_INTERVAL` | 5000 | 폴링 주기 (ms) |
+| `OKX_API_KEY` | — | SmartMoney 기능 활성화 |
+| `OKX_SECRET_KEY` | — | SmartMoney 기능 활성화 |
+| `OKX_PASSPHRASE` | — | SmartMoney 기능 활성화 |
+
+## 모니터링 대상 코인
+
+`src/lib/constants.ts`의 `MONITORED_COINS` 배열로 관리: `BTC, ETH, SOL`
+
+## UI 스타일
+
+- CSS 변수 기반 다크 테마 (`globals.css`): `--bg-base`, `--bg-panel`, `--border` 등
+- shadcn/ui 컴포넌트는 `src/components/ui/`에 위치
+- Tailwind CSS v4 사용 (`@tailwindcss/postcss`)
