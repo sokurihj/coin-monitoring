@@ -8,12 +8,11 @@ export async function getTopTraderLongShortRatio(instId: string): Promise<RawTop
   )
 }
 
-// 응답: data[0] = { dataVer, ranks: RawLeadTrader[] }
 export async function getLeadTraders(): Promise<RawLeadTrader[]> {
-  const data = await okxAuthFetch<{ dataVer: string; ranks: RawLeadTrader[] }>(
-    '/api/v5/copytrading/public-lead-traders'
+  return okxAuthFetch<RawLeadTrader>(
+    '/api/v5/orbit/public/leaderboard',
+    { sortBy: 'pnl', period: '90', limit: '5' }
   )
-  return data[0]?.ranks ?? []
 }
 
 export function parseSignal(coin: string, ratios: RawTopTraderRatio[]): SmartMoneySignal | null {
@@ -33,13 +32,13 @@ export function parseSignal(coin: string, ratios: RawTopTraderRatio[]): SmartMon
 
 export function parseTrader(raw: RawLeadTrader): SmartMoneyTrader {
   return {
-    id: raw.uniqueCode,
+    id: raw.authorId,
     nickName: raw.nickName,
     profit: parseFloat(raw.pnl),
-    profitRate: parseFloat(raw.pnlRatio), // 이미 % 단위 (16.04 = 16.04%)
-    winRate: parseFloat(raw.winRatio),    // 0~1 범위
-    followers: parseInt(raw.copyTraderNum),
-    aum: parseFloat(raw.aum),
-    portLink: raw.portLink,
+    profitRate: parseFloat(raw.pnlRatio),
+    winRate: parseFloat(raw.winRate),
+    followers: 0,
+    aum: parseFloat(raw.asset),
+    portLink: raw.portrait,
   }
 }

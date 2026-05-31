@@ -83,16 +83,15 @@ export interface RawInstrument {
   maxStopSz: string
 }
 
-// copytrading/public-lead-traders 응답: data[0].ranks[]
+// orbit/public/leaderboard 응답 필드
 export interface RawLeadTrader {
-  uniqueCode: string
-  portLink: string
+  authorId: string
+  portrait: string
   nickName: string
   pnl: string        // 절대 USD PnL
-  pnlRatio: string   // 수익률 (16.04 = 16.04%)
-  winRatio: string   // 승률 (0~1)
-  copyTraderNum: string // 현재 팔로워 수
-  aum: string           // AUM USD
+  pnlRatio: string   // 수익률 (소수, 0.3385 = 33.85%)
+  winRate: string    // 승률 (0~1)
+  asset: string      // AUM USD
 }
 
 // rubik/stat/contracts/long-short-account-ratio-contract-top-trader 응답
