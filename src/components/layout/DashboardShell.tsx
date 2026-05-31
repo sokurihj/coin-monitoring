@@ -6,12 +6,12 @@ import { TopBar } from './TopBar'
 import { CoinTabBar } from './CoinTabBar'
 import { MarketOverviewStrip } from '../market/MarketOverviewStrip'
 import { FundingRateBar } from '../market/FundingRateBar'
-import { WhaleFeed } from '../whale/WhaleFeed'
 import { OIMoversTable } from '../oi/OIMoversTable'
 import { SmartMoneyPanel } from '../smartmoney/SmartMoneyPanel'
 import { CvdChart } from '../market/CvdChart'
 import { OrderBookImbalanceBar } from '../market/OrderBookImbalanceBar'
 import { LiquidationFeed } from '../market/LiquidationFeed'
+import { LeftPanelTabs } from './LeftPanelTabs'
 
 export function DashboardShell() {
   const { isConnected } = useWhaleStream()
@@ -25,10 +25,8 @@ export function DashboardShell() {
       <CoinTabBar />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 왼쪽: 고래 피드 */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ borderRight: '1px solid var(--border)' }}>
-          <WhaleFeed />
-        </div>
+        {/* 왼쪽: 탭 패널 (고래 피드 / 캔들 차트) */}
+        <LeftPanelTabs />
 
         {/* 오른쪽: 사이드 패널 */}
         <div
