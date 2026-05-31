@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev      # 개발 서버 (http://localhost:3000)
 npm run build    # 프로덕션 빌드
 npm run lint     # ESLint 검사
+npm run notifier # 텔레그램 고래 알림 백그라운드 프로세스 (로컬 실행용)
 ```
 
 ## 아키텍처
@@ -44,6 +45,12 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
 상태 관리
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
   └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
+
+텔레그램 알림 (백그라운드, 브라우저 불필요)
+  └── src/lib/telegram.ts          # sendTelegramMessage() — Bot API 호출 헬퍼
+  └── scripts/whale-notifier.ts    # 독립 폴링 프로세스 — large($300K+) 감지 시 텔레그램 전송
+                                   # MAX_RUNTIME_MS 환경변수로 실행 시간 제한 (GitHub Actions용)
+  └── .github/workflows/whale-notifier.yml  # 5분마다 자동 실행 (4분 30초 폴링 후 종료)
 ```
 
 ### 컴포넌트 계층
@@ -90,6 +97,9 @@ app/dashboard/page.tsx
 | `OKX_API_KEY` | — | SmartMoney 기능 활성화 |
 | `OKX_SECRET_KEY` | — | SmartMoney 기능 활성화 |
 | `OKX_PASSPHRASE` | — | SmartMoney 기능 활성화 |
+| `TELEGRAM_BOT_TOKEN` | — | 텔레그램 알림 활성화 (BotFather 발급) |
+| `TELEGRAM_CHAT_ID` | — | 텔레그램 수신 채팅 ID |
+| `MAX_RUNTIME_MS` | — | 노티파이어 최대 실행 시간 ms (GitHub Actions: 270000) |
 
 ## 모니터링 대상 코인
 
