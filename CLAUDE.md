@@ -83,9 +83,9 @@ app/dashboard/page.tsx
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
-| `WHALE_MEGA_USD` | 500000 | 메가 고래 임계값 |
-| `WHALE_LARGE_USD` | 100000 | 대형 고래 임계값 |
-| `WHALE_MEDIUM_USD` | 20000 | 중형 고래 임계값 |
+| `WHALE_MEGA_USD` | 1000000 | 메가 고래 임계값 |
+| `WHALE_LARGE_USD` | 300000 | 대형 고래 임계값 |
+| `WHALE_MEDIUM_USD` | 100000 | 중형 고래 임계값 |
 | `NEXT_PUBLIC_POLL_INTERVAL` | 5000 | 폴링 주기 (ms) |
 | `OKX_API_KEY` | — | SmartMoney 기능 활성화 |
 | `OKX_SECRET_KEY` | — | SmartMoney 기능 활성화 |
