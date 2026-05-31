@@ -11,6 +11,10 @@ import type { WhaleTradeEvent } from '../src/types/whale'
 const POLL_MS = 5_000
 const limit = pLimit(5)
 
+// GitHub Actions 모드: MAX_RUNTIME_MS 환경변수가 있으면 해당 시간 후 자동 종료
+const MAX_RUNTIME_MS = process.env.MAX_RUNTIME_MS ? Number(process.env.MAX_RUNTIME_MS) : null
+const startedAt = Date.now()
+
 // 알림 전송한 tradeId 추적 (메모리 누수 방지용 상한)
 const notifiedIds = new Set<string>()
 const MAX_NOTIFIED = 2_000
@@ -74,6 +78,11 @@ async function poll() {
     }
 
     pruneNotifiedIds()
+
+    if (MAX_RUNTIME_MS && Date.now() - startedAt >= MAX_RUNTIME_MS) {
+      console.log(`[${new Date().toISOString()}] 최대 실행 시간 도달, 종료합니다.`)
+      process.exit(0)
+    }
   } catch (err) {
     console.error(`[${new Date().toISOString()}] 폴링 오류:`, err)
   }

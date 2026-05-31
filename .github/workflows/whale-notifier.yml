@@ -1,0 +1,28 @@
+name: Whale Notifier
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # 5분마다 실행
+  workflow_dispatch:        # 수동 실행 버튼
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run whale notifier (4분 30초)
+        run: npm run notifier
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_RUNTIME_MS: '270000'
