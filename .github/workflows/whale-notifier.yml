@@ -21,7 +21,7 @@ jobs:
       - run: npm ci
 
       - name: Run whale notifier (4분 30초)
-        run: npm run notifier
+        run: npx tsx scripts/whale-notifier.ts
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
