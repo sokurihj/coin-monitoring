@@ -2,12 +2,16 @@
   "mcpServers": {
     "okx-trade-mcp": {
       "type": "stdio",
-      "command": "okx-trade-mcp",
+      "command": "/Users/hajun/.npm-global/bin/okx-trade-mcp",
       "args": [
         "--modules",
-        "all"
+        "market,smartmoney,news"
       ],
-      "env": {}
+      "env": {
+        "OKX_API_KEY": "",
+        "OKX_SECRET_KEY": "",
+        "OKX_PASSPHRASE": ""
+      }
     }
   }
 }

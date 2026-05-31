@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base: #0a0c0f;
+  --bg-panel: #111318;
+  --bg-row-hover: #1a1e26;
+  --border: #1e2330;
+  --text-primary: #e2e8f0;
+  --text-muted: #64748b;
+  --buy: #00c076;
+  --sell: #ff3b5c;
+  --warning: #f59e0b;
+  --mega-buy-glow: rgba(0, 192, 118, 0.12);
+  --mega-sell-glow: rgba(255, 59, 92, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --color-panel: var(--bg-panel);
+  --color-border: var(--border);
+  --color-buy: var(--buy);
+  --color-sell: var(--sell);
+  --color-warning: var(--warning);
+  --color-muted: var(--text-muted);
+  --font-mono: 'JetBrains Mono', 'Roboto Mono', 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+@keyframes slideInTop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-slide-in {
+  animation: slideInTop 0.25s ease-out;
+}
+
+.animate-ticker {
+  animation: ticker-scroll 40s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
