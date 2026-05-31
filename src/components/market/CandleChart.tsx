@@ -11,7 +11,7 @@ import { useWhaleStore } from '@/store/whaleStore'
 import { calcRsi, calcMacd } from '@/lib/indicators'
 import { MONITORED_COINS } from '@/lib/constants'
 
-const TIMEFRAMES = ['1m', '5m', '15m', '1H'] as const
+const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
 
 export function CandleChart() {
