@@ -11,6 +11,8 @@ import { useWhaleStore } from '@/store/whaleStore'
 import { calcRsi, calcMacd } from '@/lib/indicators'
 import { MONITORED_COINS } from '@/lib/constants'
 
+const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
+
 const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
 
@@ -40,10 +42,24 @@ export function CandleChart() {
         horzLines: { color: '#1e2330' },
       },
       crosshair: { mode: 1 },
+      localization: {
+        // crosshair tooltip 시간 → KST
+        timeFormatter: (ts: number) => {
+          const d = new Date((ts + KST_OFFSET) * 1000)
+          return d.toISOString().slice(0, 16).replace('T', ' ')
+        },
+      },
       timeScale: {
         borderColor: '#1e2330',
         timeVisible: true,
         secondsVisible: false,
+        // x축 눈금 라벨 → KST
+        tickMarkFormatter: (ts: number) => {
+          const d = new Date((ts + KST_OFFSET) * 1000)
+          const hh = String(d.getUTCHours()).padStart(2, '0')
+          const mm = String(d.getUTCMinutes()).padStart(2, '0')
+          return `${hh}:${mm}`
+        },
       },
       rightPriceScale: { borderColor: '#1e2330' },
       width: containerRef.current.clientWidth,
