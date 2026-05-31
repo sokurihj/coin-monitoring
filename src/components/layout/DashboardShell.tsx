@@ -1,6 +1,7 @@
 'use client'
 import { useWhaleStream } from '@/hooks/useWhaleStream'
 import { useCvd } from '@/hooks/useCvd'
+import { useLiquidations } from '@/hooks/useLiquidations'
 import { TopBar } from './TopBar'
 import { CoinTabBar } from './CoinTabBar'
 import { MarketOverviewStrip } from '../market/MarketOverviewStrip'
@@ -9,10 +10,13 @@ import { WhaleFeed } from '../whale/WhaleFeed'
 import { OIMoversTable } from '../oi/OIMoversTable'
 import { SmartMoneyPanel } from '../smartmoney/SmartMoneyPanel'
 import { CvdChart } from '../market/CvdChart'
+import { OrderBookImbalanceBar } from '../market/OrderBookImbalanceBar'
+import { LiquidationFeed } from '../market/LiquidationFeed'
 
 export function DashboardShell() {
   const { isConnected } = useWhaleStream()
   useCvd()
+  useLiquidations()
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -28,12 +32,14 @@ export function DashboardShell() {
 
         {/* 오른쪽: 사이드 패널 */}
         <div
-          className="w-64 flex flex-col overflow-y-auto shrink-0"
+          className="w-72 flex flex-col overflow-y-auto shrink-0"
           style={{ background: 'var(--bg-panel)' }}
         >
           <FundingRateBar />
           <OIMoversTable />
           <SmartMoneyPanel />
+          <OrderBookImbalanceBar />
+          <LiquidationFeed />
           <CvdChart />
         </div>
       </div>
