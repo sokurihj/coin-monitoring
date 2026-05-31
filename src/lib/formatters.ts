@@ -16,7 +16,7 @@ export function formatPct(value: number): string {
 }
 
 export function formatTime(ts: number): string {
-  return new Date(ts).toISOString().slice(11, 19)
+  return new Date(ts).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false })
 }
 
 export function formatSize(size: number): string {
