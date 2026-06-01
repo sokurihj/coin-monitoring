@@ -45,6 +45,7 @@ next-env.d.ts
 *.log
 *.yml
 !.github/**/*.yml
+*.json
 
 # 로컬 전용 문서
 /docs
