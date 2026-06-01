@@ -77,8 +77,11 @@ app/dashboard/page.tsx
       ├── CoinTabBar               # 코인 필터 탭 (🔥 frequencyStore spike 배지)
       ├── LeftPanelTabs (좌, flex-1)
       │   ├── [고래피드] 탭: WhaleFeed
-      │   └── [캔들 차트] 탭: CandleChart (캔들 / RSI(14) / MACD(12,26,9), 1m~4H)
+      │   └── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~4H)
+      │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
+      │                            Volume hover 시 헤더에 수치 표시 (subscribeCrosshairMove)
       │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커
+      │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       └── RightPanel (우, w-72)
           ├── FundingRateBar
           ├── OIMoversTable
