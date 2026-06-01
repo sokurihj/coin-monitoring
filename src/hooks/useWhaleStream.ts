@@ -20,6 +20,7 @@ export function useWhaleStream() {
     queryKey: ['whale-feed'],
     queryFn: fetchWhaleFeed,
     refetchInterval: POLL_INTERVAL,
+    refetchIntervalInBackground: true,
     staleTime: 0,
   })
 
