@@ -38,19 +38,27 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/smartmoney/traders      # OKX 카피트레이딩 리더 트레이더 상위 5명
 
 클라이언트 (React Query 폴링)
-  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore에 누적
+  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute
   └── hooks/useOIMovers.ts         # 30s 폴링
   └── hooks/useFundingRates.ts     # 10s 폴링
+  └── hooks/useCandles.ts          # 15s 폴링
+  └── hooks/useCvd.ts              # 5s 폴링
+  └── hooks/useLiquidations.ts     # 10s 폴링
+  └── hooks/useOrderBook.ts        # 3s 폴링
 
 상태 관리
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
   └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
+  └── store/cvdStore.ts            # Zustand — 코인별 CVD 누적
+  └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적
+  └── store/frequencyStore.ts      # Zustand — 코인별 거래 빈도 spike 감지 (60s 슬라이딩 윈도우 vs 5분 평균 2배)
 
 텔레그램 알림 (백그라운드, 브라우저 불필요)
   └── src/lib/telegram.ts          # sendTelegramMessage() — Bot API 호출 헬퍼
   └── scripts/whale-notifier.ts    # 독립 폴링 프로세스 — large($300K+) 감지 시 텔레그램 전송
                                    # MAX_RUNTIME_MS 환경변수로 실행 시간 제한 (GitHub Actions용)
-  └── .github/workflows/whale-notifier.yml  # 5분마다 자동 실행 (4분 30초 폴링 후 종료)
+  └── .github/workflows/whale-notifier.yml  # workflow_dispatch + schedule(*/5) — cron-job.org가 5분마다 외부 트리거
+                                            # concurrency: whale-notifier 그룹으로 중복 실행 방지
 ```
 
 ### 컴포넌트 계층
@@ -60,12 +68,17 @@ app/dashboard/page.tsx
   └── DashboardShell               # 레이아웃 루트, useWhaleStream 초기화
       ├── TopBar                   # 연결 상태 표시
       ├── MarketOverviewStrip      # 코인별 가격/변동률 띠
-      ├── CoinTabBar               # 코인 필터 탭
-      ├── WhaleFeed (좌)           # 고래 체결 피드
-      └── 사이드패널 (우, w-64)
+      ├── CoinTabBar               # 코인 필터 탭 (🔥 frequencyStore spike 배지)
+      ├── LeftPanelTabs (좌, flex-1)
+      │   ├── [고래피드] 탭: WhaleFeed
+      │   └── [캔들 차트] 탭: CandleChart (캔들 / RSI(14) / MACD(12,26,9), 1m~4H)
+      └── RightPanel (우, w-72)
           ├── FundingRateBar
           ├── OIMoversTable
-          └── SmartMoneyPanel      # TOP TRADER L/S + LEAD TRADERS
+          ├── SmartMoneyPanel      # TOP TRADER L/S + LEAD TRADERS
+          ├── OrderBookImbalanceBar
+          ├── LiquidationFeed
+          └── CvdChart
 ```
 
 ### 핵심 로직
