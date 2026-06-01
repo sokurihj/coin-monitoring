@@ -173,6 +173,8 @@ export function CandleChart() {
     const { candle, volume, rsi, macdHist, macdLine, signalLine, chart } = refs.current
     if (!bars.length || !candle) return
 
+    const isNewContext = refs.current.lastCoin !== coin || refs.current.lastBar !== bar
+
     const closes = bars.map(b => b.close)
     const rsiVals = calcRsi(closes)
     const { macd, signal, histogram } = calcMacd(closes)
@@ -223,8 +225,13 @@ export function CandleChart() {
         .filter(d => !isNaN(d.value)),
     )
 
-    chart.timeScale().fitContent()
-  }, [bars])
+    if (isNewContext || !refs.current.initialized) {
+      chart.timeScale().fitContent()
+      refs.current.initialized = true
+      refs.current.lastCoin = coin
+      refs.current.lastBar = bar
+    }
+  }, [bars, coin, bar])
 
   // ICT 오버레이 업데이트 (bars 또는 ictEnabled 변경 시)
   useEffect(() => {
