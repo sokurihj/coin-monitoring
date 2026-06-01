@@ -89,7 +89,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
       const displacement = bars[i + 1].close - ob.close
       if (displacement > DISPLACEMENT * body) {
         const top = ob.open
-        const bottom = ob.low
+        const bottom = ob.close
         const violated = bars.slice(i + 1).some(b => b.close < bottom)
         obs.push({ type: 'bullish', top, bottom, ts: ob.ts, violated })
       }
@@ -99,7 +99,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
     if (ob.close > ob.open) {
       const displacement = ob.close - bars[i + 1].close
       if (displacement > DISPLACEMENT * body) {
-        const top = ob.high
+        const top = ob.close
         const bottom = ob.open
         const violated = bars.slice(i + 1).some(b => b.close > top)
         obs.push({ type: 'bearish', top, bottom, ts: ob.ts, violated })
