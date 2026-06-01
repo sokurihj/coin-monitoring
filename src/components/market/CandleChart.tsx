@@ -5,11 +5,19 @@ import {
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
+  createSeriesMarkers,
 } from 'lightweight-charts'
 import { useCandles } from '@/hooks/useCandles'
 import { useWhaleStore } from '@/store/whaleStore'
 import { calcRsi, calcMacd } from '@/lib/indicators'
 import { MONITORED_COINS } from '@/lib/constants'
+import {
+  detectFVGs,
+  detectOrderBlocks,
+  detectLiquidityLevels,
+  generateICTSignals,
+} from '@/lib/ict'
+import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
 
 const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
 
@@ -22,6 +30,7 @@ export function CandleChart() {
   const [bar, setBar] = useState<Timeframe>('1m')
 
   const { data: bars = [] } = useCandles(coin, bar)
+  const [ictEnabled, setIctEnabled] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,7 +120,13 @@ export function CandleChart() {
     if (panes[1]) panes[1].setStretchFactor(0.2)
     if (panes[2]) panes[2].setStretchFactor(0.2)
 
-    refs.current = { chart, candle, rsi, macdHist, macdLine, signalLine }
+    const seriesMarkers = createSeriesMarkers(candle, [])
+
+    const ictPrimitive = new ZoneBoxesPrimitive()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(candle as any).attachPrimitive(ictPrimitive)
+
+    refs.current = { chart, candle, rsi, macdHist, macdLine, signalLine, seriesMarkers, ictPrimitive }
 
     const ro = new ResizeObserver(entries => {
       for (const e of entries) {
@@ -177,6 +192,83 @@ export function CandleChart() {
     chart.timeScale().fitContent()
   }, [bars])
 
+  // ICT 오버레이 업데이트 (bars 또는 ictEnabled 변경 시)
+  useEffect(() => {
+    const { seriesMarkers, ictPrimitive } = refs.current
+    if (!seriesMarkers || !ictPrimitive) return
+
+    seriesMarkers.setMarkers([])
+    ictPrimitive.updateZones([])
+
+    if (!ictEnabled || !bars.length) return
+
+    // 현재가 기준 ±1.5% 범위 필터
+    const currentPrice = bars[bars.length - 1].close
+    const RANGE = 0.015
+    const priceMin = currentPrice * (1 - RANGE)
+    const priceMax = currentPrice * (1 + RANGE)
+    const inRange = (price: number) => price >= priceMin && price <= priceMax
+    const zoneInRange = (top: number, bottom: number) => top >= priceMin && bottom <= priceMax
+
+    const zones: ZoneBox[] = []
+
+    // FVG: 미충전 + 현재가 범위 내, 최근 4개
+    const fvgs = detectFVGs(bars).filter(f => !f.filled && zoneInRange(f.top, f.bottom)).slice(-4)
+    for (const fvg of fvgs) {
+      zones.push({
+        top: fvg.top,
+        bottom: fvg.bottom,
+        startTs: fvg.ts / 1000,
+        color: fvg.type === 'bullish' ? '#3b82f6' : '#ef4444',
+        alpha: 0.12,
+        label: fvg.type === 'bullish' ? 'FVG↑' : 'FVG↓',
+      })
+    }
+
+    // OB: 미위반 + 현재가 범위 내, 최근 3개
+    const obs = detectOrderBlocks(bars).filter(o => !o.violated && zoneInRange(o.top, o.bottom)).slice(-3)
+    for (const ob of obs) {
+      zones.push({
+        top: ob.top,
+        bottom: ob.bottom,
+        startTs: ob.ts / 1000,
+        color: ob.type === 'bullish' ? '#f97316' : '#a855f7',
+        alpha: 0.15,
+        label: ob.type === 'bullish' ? 'OB↑' : 'OB↓',
+      })
+    }
+
+    // 유동성 레벨: 미스윕 + 현재가 범위 내, 최근 4개 (얇은 박스로 표시)
+    const TICK = currentPrice * 0.0004
+    const levels = detectLiquidityLevels(bars).filter(l => !l.swept && inRange(l.price)).slice(-4)
+    for (const level of levels) {
+      zones.push({
+        top: level.price + TICK,
+        bottom: level.price - TICK,
+        startTs: level.ts / 1000,
+        color: level.type === 'BSL' ? '#fbbf24' : '#22d3ee',
+        alpha: 0.25,
+        label: level.type,
+      })
+    }
+
+    ictPrimitive.updateZones(zones)
+
+    // 매수/매도 신호 마커 (createSeriesMarkers v5 API)
+    const signals = generateICTSignals(bars)
+    const markers = signals.map(s => ({
+      time: s.ts / 1000 as number,
+      position: s.type === 'BUY' ? 'belowBar' as const : 'aboveBar' as const,
+      color: s.type === 'BUY' ? '#00c076' : '#ff3b5c',
+      shape: s.type === 'BUY' ? 'arrowUp' as const : 'arrowDown' as const,
+      text: s.type === 'BUY'
+        ? `BUY${s.strength === 'strong' ? '★' : ''}`
+        : `SELL${s.strength === 'strong' ? '★' : ''}`,
+      size: 1,
+    }))
+    seriesMarkers.setMarkers(markers)
+  }, [bars, ictEnabled])
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       {/* 헤더 */}
@@ -190,7 +282,7 @@ export function CandleChart() {
             RSI(14) · MACD(12,26,9)
           </span>
         </span>
-        <div className="flex gap-0.5">
+        <div className="flex items-center gap-0.5">
           {TIMEFRAMES.map(tf => (
             <button
               key={tf}
@@ -205,6 +297,19 @@ export function CandleChart() {
               {tf}
             </button>
           ))}
+          <span style={{ color: 'var(--border)', fontSize: 10, margin: '0 2px' }}>|</span>
+          <button
+            onClick={() => setIctEnabled(v => !v)}
+            className="px-2 py-0.5 text-xs font-mono rounded transition-colors"
+            style={{
+              background: ictEnabled ? '#f59e0b' : 'transparent',
+              color: ictEnabled ? '#000' : 'var(--text-muted)',
+              fontWeight: ictEnabled ? 700 : 400,
+              border: ictEnabled ? 'none' : '1px solid var(--border)',
+            }}
+          >
+            ICT
+          </button>
         </div>
       </div>
 
@@ -213,12 +318,25 @@ export function CandleChart() {
 
       {/* 범례 */}
       <div
-        className="flex items-center gap-3 px-3 py-1 border-t shrink-0"
+        className="flex items-center gap-3 px-3 py-1 border-t shrink-0 flex-wrap"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
         <LegendDot color="#f59e0b" label="RSI" />
         <LegendDot color="#3b82f6" label="MACD" />
         <LegendDot color="#ef4444" label="Signal" />
+        {ictEnabled && (
+          <>
+            <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+            <LegendLine color="#3b82f6" label="FVG↑" />
+            <LegendLine color="#ef4444" label="FVG↓" />
+            <LegendLine color="#f97316" label="OB↑" />
+            <LegendLine color="#a855f7" label="OB↓" />
+            <LegendLine color="#fbbf24" label="BSL" />
+            <LegendLine color="#22d3ee" label="SSL" />
+            <LegendDot color="#00c076" label="BUY" />
+            <LegendDot color="#ff3b5c" label="SELL" />
+          </>
+        )}
       </div>
     </div>
   )
@@ -228,6 +346,15 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+      <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{label}</span>
+    </span>
+  )
+}
+
+function LegendLine({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="w-3 shrink-0" style={{ height: 1, background: color, display: 'inline-block' }} />
       <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{label}</span>
     </span>
   )
