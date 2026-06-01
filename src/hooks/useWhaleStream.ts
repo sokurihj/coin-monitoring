@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWhaleStore } from '@/store/whaleStore'
+import { useFrequencyStore } from '@/store/frequencyStore'
 import { WhaleTradeEvent } from '@/types/whale'
 import { POLL_INTERVAL } from '@/lib/constants'
 
@@ -13,6 +14,7 @@ async function fetchWhaleFeed(): Promise<WhaleTradeEvent[]> {
 
 export function useWhaleStream() {
   const addTrades = useWhaleStore(s => s.addTrades)
+  const recompute = useFrequencyStore(s => s.recompute)
 
   const query = useQuery({
     queryKey: ['whale-feed'],
@@ -22,8 +24,11 @@ export function useWhaleStream() {
   })
 
   useEffect(() => {
-    if (query.data) addTrades(query.data)
-  }, [query.data, addTrades])
+    if (query.data) {
+      addTrades(query.data)
+      recompute(useWhaleStore.getState().trades)
+    }
+  }, [query.data, addTrades, recompute])
 
   return {
     isConnected: !query.isError,
