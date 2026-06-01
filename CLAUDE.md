@@ -29,6 +29,12 @@ OKX Public API (https://www.okx.com/api/v5/...)
   └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
   └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
 
+ICT 분석 (클라이언트 사이드)
+  └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
+                                   # generateICTSignals() — 컨플루언스 3개 이상, 마감된 봉만, ±1.5% 범위 필터
+  └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
+                                   # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 반투명 박스 렌더링
+
 Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
   └── /api/oi-movers               # OI + 티커 + 펀딩비 집계 → OIMover[]
@@ -72,6 +78,7 @@ app/dashboard/page.tsx
       ├── LeftPanelTabs (좌, flex-1)
       │   ├── [고래피드] 탭: WhaleFeed
       │   └── [캔들 차트] 탭: CandleChart (캔들 / RSI(14) / MACD(12,26,9), 1m~4H)
+      │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커
       └── RightPanel (우, w-72)
           ├── FundingRateBar
           ├── OIMoversTable
