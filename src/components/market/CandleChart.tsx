@@ -24,6 +24,12 @@ const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
 const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
 
+function formatVol(v: number): string {
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(2) + 'M'
+  if (v >= 1_000) return (v / 1_000).toFixed(1) + 'K'
+  return v.toFixed(0)
+}
+
 export function CandleChart() {
   const { selectedCoin } = useWhaleStore()
   const coin = selectedCoin === 'ALL' ? MONITORED_COINS[0] : selectedCoin
@@ -31,6 +37,7 @@ export function CandleChart() {
 
   const { data: bars = [] } = useCandles(coin, bar)
   const [ictEnabled, setIctEnabled] = useState(false)
+  const [volLabel, setVolLabel] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,6 +82,7 @@ export function CandleChart() {
       height: containerRef.current.clientHeight,
     })
 
+    // pane 0 — 캔들
     const candle = chart.addSeries(CandlestickSeries, {
       upColor: '#00c076',
       downColor: '#ff3b5c',
@@ -84,19 +92,28 @@ export function CandleChart() {
       wickDownColor: '#ff3b5c',
     }, 0)
 
+    // pane 1 — 거래량
+    const volume = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      lastValueVisible: false,
+      priceLineVisible: false,
+    }, 1)
+
+    // pane 2 — RSI
     const rsi = chart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 1,
       priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
       lastValueVisible: false,
       priceLineVisible: false,
-    }, 1)
+    }, 2)
 
+    // pane 3 — MACD
     const macdHist = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'price', precision: 5, minMove: 0.00001 },
       lastValueVisible: false,
       priceLineVisible: false,
-    }, 2)
+    }, 3)
 
     const macdLine = chart.addSeries(LineSeries, {
       color: '#3b82f6',
@@ -104,7 +121,7 @@ export function CandleChart() {
       priceFormat: { type: 'price', precision: 5, minMove: 0.00001 },
       lastValueVisible: false,
       priceLineVisible: false,
-    }, 2)
+    }, 3)
 
     const signalLine = chart.addSeries(LineSeries, {
       color: '#ef4444',
@@ -112,13 +129,22 @@ export function CandleChart() {
       priceFormat: { type: 'price', precision: 5, minMove: 0.00001 },
       lastValueVisible: false,
       priceLineVisible: false,
-    }, 2)
+    }, 3)
 
-    // pane 비율: 캔들 60% · RSI 20% · MACD 20%
+    // pane 비율: 캔들 55% · Volume 15% · RSI 15% · MACD 15%
     const panes = chart.panes()
-    if (panes[0]) panes[0].setStretchFactor(0.6)
-    if (panes[1]) panes[1].setStretchFactor(0.2)
-    if (panes[2]) panes[2].setStretchFactor(0.2)
+    if (panes[0]) panes[0].setStretchFactor(0.55)
+    if (panes[1]) panes[1].setStretchFactor(0.15)
+    if (panes[2]) panes[2].setStretchFactor(0.15)
+    if (panes[3]) panes[3].setStretchFactor(0.15)
+
+    // hover 시 거래량 수치 표시
+    chart.subscribeCrosshairMove((param) => {
+      const volSeries = refs.current.volume
+      if (!volSeries) return
+      const d = param.seriesData.get(volSeries) as { value: number } | undefined
+      setVolLabel(d?.value != null ? formatVol(d.value) : null)
+    })
 
     const seriesMarkers = createSeriesMarkers(candle, [])
 
@@ -126,7 +152,7 @@ export function CandleChart() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(candle as any).attachPrimitive(ictPrimitive)
 
-    refs.current = { chart, candle, rsi, macdHist, macdLine, signalLine, seriesMarkers, ictPrimitive }
+    refs.current = { chart, candle, volume, rsi, macdHist, macdLine, signalLine, seriesMarkers, ictPrimitive }
 
     const ro = new ResizeObserver(entries => {
       for (const e of entries) {
@@ -144,7 +170,7 @@ export function CandleChart() {
 
   // 데이터 업데이트
   useEffect(() => {
-    const { candle, rsi, macdHist, macdLine, signalLine, chart } = refs.current
+    const { candle, volume, rsi, macdHist, macdLine, signalLine, chart } = refs.current
     if (!bars.length || !candle) return
 
     const closes = bars.map(b => b.close)
@@ -158,6 +184,14 @@ export function CandleChart() {
         high: b.high,
         low: b.low,
         close: b.close,
+      })),
+    )
+
+    volume.setData(
+      bars.map(b => ({
+        time: (b.ts / 1000) as number,
+        value: b.vol,
+        color: b.close >= b.open ? '#00c07644' : '#ff3b5c44',
       })),
     )
 
@@ -281,6 +315,11 @@ export function CandleChart() {
           <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
             RSI(14) · MACD(12,26,9)
           </span>
+          {volLabel && (
+            <span className="ml-1.5 text-xs" style={{ color: '#64748b' }}>
+              · Vol: {volLabel}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-0.5">
           {TIMEFRAMES.map(tf => (
@@ -321,6 +360,7 @@ export function CandleChart() {
         className="flex items-center gap-3 px-3 py-1 border-t shrink-0 flex-wrap"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
+        <LegendDot color="#64748b" label="Vol" />
         <LegendDot color="#f59e0b" label="RSI" />
         <LegendDot color="#3b82f6" label="MACD" />
         <LegendDot color="#ef4444" label="Signal" />
