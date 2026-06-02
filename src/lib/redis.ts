@@ -50,3 +50,23 @@ export async function markTradesSeen(trades: WhaleTradeEvent[]): Promise<void> {
   pipeline.expire(SEEN_KEY, 86400) // 24시간 TTL
   await pipeline.exec()
 }
+
+const ICT_SEEN_KEY = 'ict:seen'
+
+export async function filterUnseenSignalKeys(keys: string[]): Promise<string[]> {
+  if (keys.length === 0) return []
+  const r = getRedis()
+  const pipeline = r.pipeline()
+  for (const k of keys) pipeline.sismember(ICT_SEEN_KEY, k)
+  const results = await pipeline.exec()
+  return keys.filter((_, i) => !results[i])
+}
+
+export async function markSignalKeysSeen(keys: string[]): Promise<void> {
+  if (keys.length === 0) return
+  const r = getRedis()
+  const pipeline = r.pipeline()
+  for (const k of keys) pipeline.sadd(ICT_SEEN_KEY, k)
+  pipeline.expire(ICT_SEEN_KEY, 86400) // 24시간 TTL
+  await pipeline.exec()
+}

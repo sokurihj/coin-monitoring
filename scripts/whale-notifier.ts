@@ -2,12 +2,13 @@
 // 실행: npm run notifier
 
 import pLimit from 'p-limit'
-import { getTrades, getSwapInstruments } from '../src/lib/okx/public-api'
+import { getTrades, getSwapInstruments, getCandles } from '../src/lib/okx/public-api'
 import { detectWhaleTrades, updateCtValCache } from '../src/lib/whale-detector'
 import { hasTelegramConfig, sendTelegramMessage } from '../src/lib/telegram'
-import { SWAP_INSTRUMENTS, WHALE_THRESHOLDS } from '../src/lib/constants'
-import { hasRedisConfig, filterUnseenTrades, markTradesSeen, saveWhaleTrades } from '../src/lib/redis'
-import type { WhaleTradeEvent } from '../src/types/whale'
+import { MONITORED_COINS, SWAP_INSTRUMENTS, WHALE_THRESHOLDS } from '../src/lib/constants'
+import { hasRedisConfig, filterUnseenTrades, markTradesSeen, saveWhaleTrades, filterUnseenSignalKeys, markSignalKeysSeen } from '../src/lib/redis'
+import { generateICTSignals } from '../src/lib/ict'
+import type { WhaleTradeEvent, CandleBar } from '../src/types/whale'
 
 const POLL_MS = 5_000
 const limit = pLimit(5)
@@ -15,19 +16,40 @@ const limit = pLimit(5)
 const MAX_RUNTIME_MS = process.env.MAX_RUNTIME_MS ? Number(process.env.MAX_RUNTIME_MS) : null
 const startedAt = Date.now()
 
+const ICT_TIMEFRAMES = ['15m', '1H', '4H']
+
 // Redis 없을 때 fallback용 메모리 seen
 const notifiedIds = new Set<string>()
+const notifiedSignalKeys = new Set<string>()
 const MAX_NOTIFIED = 2_000
 
-function pruneNotifiedIds() {
-  if (notifiedIds.size > MAX_NOTIFIED) {
-    const surplus = notifiedIds.size - MAX_NOTIFIED
+function pruneSet(set: Set<string>) {
+  if (set.size > MAX_NOTIFIED) {
+    const surplus = set.size - MAX_NOTIFIED
     let i = 0
-    for (const id of notifiedIds) {
+    for (const id of set) {
       if (i++ >= surplus) break
-      notifiedIds.delete(id)
+      set.delete(id)
     }
   }
+}
+
+function formatICTSignal(coin: string, bar: string, signal: { type: 'BUY' | 'SELL'; strength: 'strong' | 'medium'; price: number; ts: number; reasons: string[] }): string {
+  const emoji = signal.type === 'BUY' ? '📈🟢' : '📉🔴'
+  const strengthLabel = signal.strength === 'strong' ? 'STRONG' : 'MEDIUM'
+  const price = signal.price.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  const timeStr = new Date(signal.ts).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  return `${emoji} <b>[ICT ${signal.type} · ${strengthLabel}] ${coin} ${bar}</b>
+
+💰 Price: $${price}
+🎯 ${signal.reasons.join(', ')}
+⏰ ${timeStr} KST`
 }
 
 function formatMessage(trade: WhaleTradeEvent): string {
@@ -66,7 +88,64 @@ async function markSeen(trades: WhaleTradeEvent[]) {
     await markTradesSeen(trades)
   } else {
     trades.forEach(t => notifiedIds.add(t.id))
-    pruneNotifiedIds()
+    pruneSet(notifiedIds)
+  }
+}
+
+async function checkICTSignals() {
+  try {
+    const tasks = MONITORED_COINS.flatMap(coin =>
+      ICT_TIMEFRAMES.map(bar =>
+        limit(async () => {
+          const instId = `${coin}-USDT-SWAP`
+          const raw = await getCandles(instId, bar, 100).catch(() => [])
+          const bars: CandleBar[] = raw
+            .map(c => ({
+              ts: Number(c[0]),
+              open: Number(c[1]),
+              high: Number(c[2]),
+              low: Number(c[3]),
+              close: Number(c[4]),
+              vol: Number(c[5]),
+            }))
+            .sort((a, b) => a.ts - b.ts)
+
+          const signals = generateICTSignals(bars)
+          return signals.map(s => ({ coin, bar, signal: s, key: `ict:${coin}:${bar}:${s.ts}:${s.type}` }))
+        })
+      )
+    )
+
+    const results = (await Promise.all(tasks)).flat()
+    if (results.length === 0) return
+
+    const allKeys = results.map(r => r.key)
+    const unseenKeys = useRedis
+      ? await filterUnseenSignalKeys(allKeys)
+      : allKeys.filter(k => !notifiedSignalKeys.has(k))
+
+    if (unseenKeys.length === 0) return
+
+    const unseenSet = new Set(unseenKeys)
+    const toSend = results.filter(r => unseenSet.has(r.key))
+
+    if (useRedis) {
+      await markSignalKeysSeen(unseenKeys)
+    } else {
+      unseenKeys.forEach(k => notifiedSignalKeys.add(k))
+      pruneSet(notifiedSignalKeys)
+    }
+
+    for (const { coin, bar, signal } of toSend) {
+      console.log(`[${new Date().toISOString()}] ICT ${signal.type} ${signal.strength.toUpperCase()} ${coin} ${bar} reasons: ${signal.reasons.join(',')}`)
+      if (hasTelegramConfig()) {
+        await sendTelegramMessage(formatICTSignal(coin, bar, signal)).catch(err =>
+          console.error('Telegram ICT 전송 실패:', err.message)
+        )
+      }
+    }
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] ICT 체크 오류:`, err)
   }
 }
 
@@ -131,6 +210,9 @@ async function main() {
 
   await poll()
   setInterval(poll, POLL_MS)
+
+  await checkICTSignals()
+  setInterval(checkICTSignals, 60_000)
 }
 
 main()
