@@ -66,7 +66,7 @@ export function CandleChart() {
         vertLines: { color: '#1e2330' },
         horzLines: { color: '#1e2330' },
       },
-      crosshair: { mode: 1 },
+      crosshair: { mode: 0 },
       localization: {
         // crosshair tooltip 시간 → KST
         timeFormatter: (ts: number) => {
