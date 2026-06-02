@@ -243,18 +243,11 @@ export function CandleChart() {
 
     if (!ictEnabled || !bars.length) return
 
-    // 현재가 기준 ±1.5% 범위 필터
     const currentPrice = bars[bars.length - 1].close
-    const RANGE = 0.015
-    const priceMin = currentPrice * (1 - RANGE)
-    const priceMax = currentPrice * (1 + RANGE)
-    const inRange = (price: number) => price >= priceMin && price <= priceMax
-    const zoneInRange = (top: number, bottom: number) => top >= priceMin && bottom <= priceMax
-
     const zones: ZoneBox[] = []
 
-    // FVG: 미충전 + 현재가 범위 내, 최근 4개
-    const fvgs = detectFVGs(bars).filter(f => !f.filled && zoneInRange(f.top, f.bottom)).slice(-4)
+    // FVG: 미충전 존 전체, 최근 4개
+    const fvgs = detectFVGs(bars).filter(f => !f.filled).slice(-4)
     for (const fvg of fvgs) {
       zones.push({
         top: fvg.top,
@@ -266,8 +259,8 @@ export function CandleChart() {
       })
     }
 
-    // OB: 미위반 + 현재가 범위 내, 최근 3개
-    const obs = detectOrderBlocks(bars).filter(o => !o.violated && zoneInRange(o.top, o.bottom)).slice(-3)
+    // OB: 미위반 존 전체, 최근 3개
+    const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-3)
     for (const ob of obs) {
       zones.push({
         top: ob.top,
@@ -279,9 +272,9 @@ export function CandleChart() {
       })
     }
 
-    // 유동성 레벨: 미스윕 + 현재가 범위 내, 최근 4개 (얇은 박스로 표시)
+    // 유동성 레벨: 미스윕 존 전체, 최근 4개 (얇은 박스로 표시)
     const TICK = currentPrice * 0.0004
-    const levels = detectLiquidityLevels(bars, 10).filter(l => !l.swept && inRange(l.price)).slice(-4)
+    const levels = detectLiquidityLevels(bars, 10).filter(l => !l.swept).slice(-4)
     for (const level of levels) {
       zones.push({
         top: level.price + TICK,
