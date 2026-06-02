@@ -37,8 +37,8 @@ export interface ICTSignal {
   reasons: string[]
 }
 
-// 갭 크기가 가격의 0.1% 이상인 FVG만 유효
-const MIN_FVG_RATIO = 0.001
+// 갭 크기가 가격의 0.3% 이상인 FVG만 유효
+const MIN_FVG_RATIO = 0.003
 
 // 세 캔들 사이 가격 불균형 구간 감지
 export function detectFVGs(bars: CandleBar[]): FVG[] {
