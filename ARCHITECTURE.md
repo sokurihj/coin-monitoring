@@ -12,7 +12,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
                                    # generateICTSignals() — 컨플루언스 3개=medium / 4개+=strong, 마감된 봉만, 최근 10봉 검사
-                                   # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효)
+                                   # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
@@ -49,7 +49,8 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
                                    # 신호 키 포맷: ict:{coin}:{bar}:{ts}:{type}, TTL 24시간
   └── scripts/whale-notifier.ts    # 독립 폴링 프로세스
                                    # 고래 체결: 5초 폴링 — large($300K+) 감지 시 텔레그램 전송
-                                   # ICT 신호: 60초 폴링 — 15m/1H/4H × BTC/ETH/SOL, STRONG(컨플루언스 4개+)만 전송
+                                   # ICT 신호: 60초 폴링 — 15m/1H/4H × BTC/ETH/SOL, MEDIUM(3개+) 이상 전송
+                                   # 고래 체결: mega($1M+)만 전송 (large 제외)
   └── Dockerfile                   # Node.js 20 Alpine 기반 — npx tsx scripts/whale-notifier.ts 실행
   └── fly.toml                     # Fly.io 배포 설정 — shared-cpu-1x / 256MB / nrt 리전 / 24시간 상시 실행
   └── .github/workflows/whale-notifier.yml  # workflow_dispatch만 유지 (수동 실행용) — Fly.io 이전으로 스케줄 비활성화
