@@ -43,7 +43,6 @@ export function CandleChart() {
   const [bar, setBar] = useState<Timeframe>('1m')
 
   const { data: bars = [] } = useCandles(coin, bar)
-  const [ictEnabled, setIctEnabled] = useState(false)
   const [volLabel, setVolLabel] = useState<string | null>(null)
   const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
   const [signalTooltip, setSignalTooltip] = useState<{ x: number; y: number; signal: ICTSignal } | null>(null)
@@ -258,7 +257,7 @@ export function CandleChart() {
     }
   }, [bars, coin, bar])
 
-  // ICT 오버레이 업데이트 (bars 또는 ictEnabled 변경 시)
+  // ICT 오버레이 업데이트 (bars 변경 시)
   useEffect(() => {
     const { seriesMarkers, ictPrimitive } = refs.current
     if (!seriesMarkers || !ictPrimitive) return
@@ -267,7 +266,7 @@ export function CandleChart() {
     ictPrimitive.updateZones([])
     refs.current.signals = []
 
-    if (!ictEnabled || !bars.length) {
+    if (!bars.length) {
       setSignalTooltip(null)
       return
     }
@@ -331,7 +330,7 @@ export function CandleChart() {
       size: 1,
     }))
     seriesMarkers.setMarkers(markers)
-  }, [bars, ictEnabled])
+  }, [bars])
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -378,25 +377,12 @@ export function CandleChart() {
               {tf}
             </button>
           ))}
-          <span style={{ color: 'var(--border)', fontSize: 10, margin: '0 2px' }}>|</span>
-          <button
-            onClick={() => setIctEnabled(v => !v)}
-            className="px-2 py-0.5 text-xs font-mono rounded transition-colors"
-            style={{
-              background: ictEnabled ? '#f59e0b' : 'transparent',
-              color: ictEnabled ? '#000' : 'var(--text-muted)',
-              fontWeight: ictEnabled ? 700 : 400,
-              border: ictEnabled ? 'none' : '1px solid var(--border)',
-            }}
-          >
-            ICT
-          </button>
         </div>
       </div>
 
       {/* 차트 컨테이너 */}
       <div ref={containerRef} className="flex-1 relative">
-        {signalTooltip && ictEnabled && (
+        {signalTooltip && (
           <div
             style={{
               position: 'absolute',
@@ -433,19 +419,15 @@ export function CandleChart() {
         <LegendDot color="#f59e0b" label="RSI" />
         <LegendDot color="#3b82f6" label="MACD" />
         <LegendDot color="#ef4444" label="Signal" />
-        {ictEnabled && (
-          <>
-            <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
-            <LegendLine color="#3b82f6" label="FVG↑" />
-            <LegendLine color="#ef4444" label="FVG↓" />
-            <LegendLine color="#f97316" label="OB↑" />
-            <LegendLine color="#a855f7" label="OB↓" />
-            <LegendLine color="#fbbf24" label="BSL" />
-            <LegendLine color="#22d3ee" label="SSL" />
-            <LegendDot color="#00c076" label="BUY" />
-            <LegendDot color="#ff3b5c" label="SELL" />
-          </>
-        )}
+        <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+        <LegendLine color="#3b82f6" label="FVG↑" />
+        <LegendLine color="#ef4444" label="FVG↓" />
+        <LegendLine color="#f97316" label="OB↑" />
+        <LegendLine color="#a855f7" label="OB↓" />
+        <LegendLine color="#fbbf24" label="BSL" />
+        <LegendLine color="#22d3ee" label="SSL" />
+        <LegendDot color="#00c076" label="BUY" />
+        <LegendDot color="#ff3b5c" label="SELL" />
       </div>
     </div>
   )
