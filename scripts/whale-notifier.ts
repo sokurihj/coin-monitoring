@@ -110,7 +110,7 @@ async function checkICTSignals() {
             }))
             .sort((a, b) => a.ts - b.ts)
 
-          const signals = generateICTSignals(bars)
+          const signals = generateICTSignals(bars).filter(s => s.strength === 'strong')
           return signals.map(s => ({ coin, bar, signal: s, key: `ict:${coin}:${bar}:${s.ts}:${s.type}` }))
         })
       )
