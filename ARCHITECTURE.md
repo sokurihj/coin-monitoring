@@ -11,7 +11,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
-                                   # generateICTSignals() — 컨플루언스 3개=medium / 4개+=strong, 마감된 봉만, 최근 10봉 검사
+                                   # generateICTSignals() — 컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만, 전체 봉 검사 (각 봉 시점 기준 FVG/OB 재계산)
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
@@ -68,7 +68,7 @@ app/dashboard/page.tsx
       │   ├── [고래피드] 탭: WhaleFeed
       │   └── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~4H)
       │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
-      │                            Volume hover 시 헤더에 수치 표시 (subscribeCrosshairMove)
+      │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
       │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커
       │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       └── RightPanel (우, w-72)

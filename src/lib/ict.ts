@@ -166,26 +166,27 @@ export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
   return sorted.slice(-10)
 }
 
-// 컨플루언스 3개 이상, 최근 10봉만 검사, 마감된 봉에서만 신호 생성
+// 컨플루언스 3개 이상, 전체 봉 검사, 각 봉 시점 기준으로 FVG/OB/레벨 재계산 (미래 정보 배제)
 export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
   if (bars.length < 15) return []
 
-  const allFvgs = detectFVGs(bars)
-  const allObs = detectOrderBlocks(bars)
-  const allLevels = detectLiquidityLevels(bars)
-  const structure = detectMarketStructure(bars)
-
   const signals: ICTSignal[] = []
-  // 최근 10봉만 검사, 마지막 봉(현재 진행 중인 봉) 제외
-  const LOOKBACK = 10
 
-  for (let idx = Math.max(15, bars.length - LOOKBACK); idx < bars.length - 1; idx++) {
+  // 마지막 봉(현재 진행 중인 봉) 제외, 15봉부터 전체 검사
+  for (let idx = 15; idx < bars.length - 1; idx++) {
+    // 해당 시점까지의 봉만으로 구조물 재계산 — 미래 봉의 filled/violated/swept 정보 차단
+    const subset = bars.slice(0, idx + 1)
+    const fvgs = detectFVGs(subset)
+    const obs = detectOrderBlocks(subset)
+    const levels = detectLiquidityLevels(subset)
+    const structure = detectMarketStructure(subset)
+
     const bar = bars[idx]
     const buyReasons: string[] = []
     const sellReasons: string[] = []
 
     // 해당 바 이전에 생성된 미충전 FVG 접촉
-    for (const fvg of allFvgs.filter(f => f.ts < bar.ts && !f.filled)) {
+    for (const fvg of fvgs.filter(f => f.ts < bar.ts && !f.filled)) {
       if (fvg.type === 'bullish' && bar.low <= fvg.top && bar.high >= fvg.bottom) {
         if (!buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
       }
@@ -195,7 +196,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     }
 
     // 해당 바 이전에 생성된 미위반 OB 접촉
-    for (const ob of allObs.filter(o => o.ts < bar.ts && !o.violated)) {
+    for (const ob of obs.filter(o => o.ts < bar.ts && !o.violated)) {
       if (ob.type === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
         if (!buyReasons.includes('OB↑')) buyReasons.push('OB↑')
       }
@@ -205,7 +206,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     }
 
     // 유동성 스윕 (저점 스윕 후 종가 회복 = 매수 / 고점 스윕 후 종가 하락 = 매도)
-    for (const level of allLevels.filter(l => l.ts < bar.ts)) {
+    for (const level of levels.filter(l => l.ts < bar.ts)) {
       if (level.type === 'SSL' && bar.low < level.price && bar.close > level.price) {
         if (!buyReasons.includes('SSL스윕')) buyReasons.push('SSL스윕')
       }
@@ -214,7 +215,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 프리미엄/할인 구간 (최근 20봉 레인지 기준)
+    // 프리미엄/할인 구간 (이전 20봉 레인지 기준)
     const ctx = bars.slice(Math.max(0, idx - 20), idx)
     if (ctx.length >= 10) {
       const hi = Math.max(...ctx.map(b => b.high))
@@ -230,10 +231,12 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     if (lastBos?.type === 'BOS_UP' || lastBos?.type === 'CHOCH_UP') buyReasons.push('BOS↑')
     if (lastBos?.type === 'BOS_DOWN' || lastBos?.type === 'CHOCH_DOWN') sellReasons.push('BOS↓')
 
-    // 컨플루언스 3개 이상 + 캔들 방향 확인 (중복 신호 방지)
+    // 컨플루언스 3개 이상 + FVG/OB 접촉 필수 + 캔들 방향 확인 (중복 신호 방지)
+    const hasBuyZone = buyReasons.includes('FVG↑') || buyReasons.includes('OB↑')
+    const hasSellZone = sellReasons.includes('FVG↓') || sellReasons.includes('OB↓')
     const alreadySignaled = signals.some(s => s.ts === bar.ts)
     if (!alreadySignaled) {
-      if (buyReasons.length >= 3 && bar.close > bar.open) {
+      if (buyReasons.length >= 3 && hasBuyZone && bar.close > bar.open) {
         signals.push({
           type: 'BUY',
           strength: buyReasons.length >= 4 ? 'strong' : 'medium',
@@ -241,7 +244,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
           ts: bar.ts,
           reasons: buyReasons,
         })
-      } else if (sellReasons.length >= 3 && bar.close < bar.open) {
+      } else if (sellReasons.length >= 3 && hasSellZone && bar.close < bar.open) {
         signals.push({
           type: 'SELL',
           strength: sellReasons.length >= 4 ? 'strong' : 'medium',
