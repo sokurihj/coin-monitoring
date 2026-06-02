@@ -20,7 +20,8 @@ ICT 분석 (클라이언트 사이드)
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
-                                   # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 반투명 박스 렌더링
+                                   # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 렌더링
+                                   # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL), false면 반투명 박스 (FVG/OB)
                                    # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 3개, BSL/SSL 4개)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
@@ -28,6 +29,10 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/oi-movers               # OI + 티커 + 펀딩비 집계 → OIMover[]
   └── /api/funding                 # 펀딩비 목록 → FundingRateInfo[]
   └── /api/tickers                 # 티커 목록
+  └── /api/candles                 # 캔들 데이터 → Bar[]
+  └── /api/cvd                     # CVD(누적 거래량 델타) 데이터
+  └── /api/liquidations            # 청산 이벤트 목록
+  └── /api/orderbook               # 호가창 데이터
   └── /api/smartmoney/signals      # 상위 트레이더 롱/숏 비율 (BTC, ETH, SOL)
   └── /api/smartmoney/traders      # OKX 카피트레이딩 리더 트레이더 상위 5명
 
@@ -73,7 +78,7 @@ app/dashboard/page.tsx
       │   └── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~4H)
       │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
-      │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
+      │                            ICT 상시 활성 — FVG/OB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
       │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       └── RightPanel (우, w-72)
           ├── FundingRateBar
