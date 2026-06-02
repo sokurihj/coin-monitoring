@@ -16,6 +16,7 @@ import {
   detectOrderBlocks,
   detectLiquidityLevels,
   generateICTSignals,
+  type ICTSignal,
 } from '@/lib/ict'
 import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
 
@@ -45,6 +46,7 @@ export function CandleChart() {
   const [ictEnabled, setIctEnabled] = useState(false)
   const [volLabel, setVolLabel] = useState<string | null>(null)
   const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
+  const [signalTooltip, setSignalTooltip] = useState<{ x: number; y: number; signal: ICTSignal } | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,6 +160,15 @@ export function CandleChart() {
           | undefined
         setOhlcLabel(cd ? { o: cd.open, h: cd.high, l: cd.low, c: cd.close } : null)
       }
+
+      // 신호 마커 툴팁
+      const sigs = refs.current.signals as ICTSignal[] | undefined
+      if (sigs && param.time != null && param.point) {
+        const matched = sigs.find(s => s.ts / 1000 === param.time)
+        setSignalTooltip(matched ? { x: param.point.x, y: param.point.y, signal: matched } : null)
+      } else {
+        setSignalTooltip(null)
+      }
     })
 
     const seriesMarkers = createSeriesMarkers(candle, [])
@@ -254,8 +265,12 @@ export function CandleChart() {
 
     seriesMarkers.setMarkers([])
     ictPrimitive.updateZones([])
+    refs.current.signals = []
 
-    if (!ictEnabled || !bars.length) return
+    if (!ictEnabled || !bars.length) {
+      setSignalTooltip(null)
+      return
+    }
 
     const currentPrice = bars[bars.length - 1].close
     const zones: ZoneBox[] = []
@@ -304,6 +319,7 @@ export function CandleChart() {
 
     // 매수/매도 신호 마커 (createSeriesMarkers v5 API)
     const signals = generateICTSignals(bars)
+    refs.current.signals = signals
     const markers = signals.map(s => ({
       time: s.ts / 1000 as number,
       position: s.type === 'BUY' ? 'belowBar' as const : 'aboveBar' as const,
@@ -379,7 +395,34 @@ export function CandleChart() {
       </div>
 
       {/* 차트 컨테이너 */}
-      <div ref={containerRef} className="flex-1" />
+      <div ref={containerRef} className="flex-1 relative">
+        {signalTooltip && ictEnabled && (
+          <div
+            style={{
+              position: 'absolute',
+              left: Math.min(signalTooltip.x + 12, (containerRef.current?.clientWidth ?? 400) - 120),
+              top: Math.max(signalTooltip.y - 60, 4),
+              background: 'rgba(10,12,15,0.95)',
+              border: `1px solid ${signalTooltip.signal.type === 'BUY' ? '#00c076' : '#ff3b5c'}`,
+              borderRadius: 4,
+              padding: '4px 8px',
+              pointerEvents: 'none',
+              zIndex: 10,
+              minWidth: 80,
+            }}
+          >
+            <div
+              className="text-xs font-mono font-bold mb-0.5"
+              style={{ color: signalTooltip.signal.type === 'BUY' ? '#00c076' : '#ff3b5c' }}
+            >
+              {signalTooltip.signal.type}{signalTooltip.signal.strength === 'strong' ? '★' : ''}
+            </div>
+            {signalTooltip.signal.reasons.map(r => (
+              <div key={r} className="text-xs font-mono" style={{ color: '#94a3b8' }}>{r}</div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 범례 */}
       <div
