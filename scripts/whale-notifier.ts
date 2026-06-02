@@ -157,7 +157,7 @@ async function poll() {
     const results = await Promise.all(
       SWAP_INSTRUMENTS.map(instId =>
         limit(async () => {
-          const trades = await getTrades(instId, 100).catch(() => [])
+          const trades = await getTrades(instId, 500).catch(() => [])
           return detectWhaleTrades(trades, instId, WHALE_THRESHOLDS.large)
         })
       )
