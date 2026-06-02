@@ -301,17 +301,17 @@ export function CandleChart() {
       })
     }
 
-    // 유동성 레벨: 미스윕 존 전체, 최근 4개 (얇은 박스로 표시)
-    const TICK = currentPrice * 0.0004
+    // 유동성 레벨: 미스윕 존 전체, 최근 4개 (수평 점선으로 표시)
     const levels = detectLiquidityLevels(bars, 15).filter(l => !l.swept).slice(-4)
     for (const level of levels) {
       zones.push({
-        top: level.price + TICK,
-        bottom: level.price - TICK,
+        top: level.price,
+        bottom: level.price,
         startTs: level.ts / 1000,
         color: level.type === 'BSL' ? '#fbbf24' : '#22d3ee',
         alpha: 0.25,
         label: level.type,
+        lineMode: true,
       })
     }
 

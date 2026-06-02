@@ -5,6 +5,7 @@ export interface ZoneBox {
   color: string
   alpha: number
   label: string
+  lineMode?: boolean  // true면 단일 수평선으로 렌더링 (BSL/SSL용)
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -67,40 +68,66 @@ export class ZoneBoxesPrimitive {
                   const x1 = timeScale.timeToCoordinate(zone.startTs)
                   if (x1 == null) continue
 
-                  const y1 = self._series.priceToCoordinate(zone.top)
-                  const y2 = self._series.priceToCoordinate(zone.bottom)
-                  if (y1 == null || y2 == null) continue
-
                   const left = Math.max(0, Math.round(x1 * hpr))
                   const right = canvasWidth
-                  const top = Math.round(Math.min(y1, y2) * vpr)
-                  const height = Math.round(Math.abs(y2 - y1) * vpr)
                   const width = right - left
+                  if (width <= 0) continue
 
-                  if (width <= 0 || height <= 0) continue
+                  if (zone.lineMode) {
+                    // 단일 수평 점선 (BSL/SSL)
+                    const price = (zone.top + zone.bottom) / 2
+                    const y = self._series.priceToCoordinate(price)
+                    if (y == null) continue
+                    const yPx = Math.round(y * vpr)
 
-                  // 반투명 배경
-                  ctx.fillStyle = hexToRgba(zone.color, zone.alpha)
-                  ctx.fillRect(left, top, width, height)
+                    ctx.strokeStyle = zone.color
+                    ctx.lineWidth = Math.round(1 * vpr)
+                    ctx.setLineDash([Math.round(4 * hpr), Math.round(4 * hpr)])
+                    ctx.beginPath()
+                    ctx.moveTo(left, yPx)
+                    ctx.lineTo(right, yPx)
+                    ctx.stroke()
+                    ctx.setLineDash([])
 
-                  // 테두리 (상단, 하단, 좌측 수직선)
-                  ctx.strokeStyle = zone.color
-                  ctx.lineWidth = hpr
-                  ctx.beginPath()
-                  ctx.moveTo(left, top)
-                  ctx.lineTo(right, top)
-                  ctx.moveTo(left, top + height)
-                  ctx.lineTo(right, top + height)
-                  ctx.moveTo(left, top)
-                  ctx.lineTo(left, top + height)
-                  ctx.stroke()
+                    // 레이블 — 우측
+                    const fontSize = Math.round(9 * vpr)
+                    ctx.fillStyle = zone.color
+                    ctx.font = `${fontSize}px monospace`
+                    ctx.textAlign = 'right'
+                    ctx.fillText(zone.label, right - Math.round(4 * hpr), yPx - Math.round(3 * vpr))
+                  } else {
+                    const y1 = self._series.priceToCoordinate(zone.top)
+                    const y2 = self._series.priceToCoordinate(zone.bottom)
+                    if (y1 == null || y2 == null) continue
 
-                  // 레이블 — 박스 우측 상단
-                  const fontSize = Math.round(9 * vpr)
-                  ctx.fillStyle = zone.color
-                  ctx.font = `${fontSize}px monospace`
-                  ctx.textAlign = 'right'
-                  ctx.fillText(zone.label, right - Math.round(4 * hpr), top + fontSize + Math.round(2 * vpr))
+                    const top = Math.round(Math.min(y1, y2) * vpr)
+                    const height = Math.round(Math.abs(y2 - y1) * vpr)
+
+                    if (height <= 0) continue
+
+                    // 반투명 배경
+                    ctx.fillStyle = hexToRgba(zone.color, zone.alpha)
+                    ctx.fillRect(left, top, width, height)
+
+                    // 테두리 (상단, 하단, 좌측 수직선)
+                    ctx.strokeStyle = zone.color
+                    ctx.lineWidth = hpr
+                    ctx.beginPath()
+                    ctx.moveTo(left, top)
+                    ctx.lineTo(right, top)
+                    ctx.moveTo(left, top + height)
+                    ctx.lineTo(right, top + height)
+                    ctx.moveTo(left, top)
+                    ctx.lineTo(left, top + height)
+                    ctx.stroke()
+
+                    // 레이블 — 박스 우측 상단
+                    const fontSize = Math.round(9 * vpr)
+                    ctx.fillStyle = zone.color
+                    ctx.font = `${fontSize}px monospace`
+                    ctx.textAlign = 'right'
+                    ctx.fillText(zone.label, right - Math.round(4 * hpr), top + fontSize + Math.round(2 * vpr))
+                  }
                 }
               })
             },
