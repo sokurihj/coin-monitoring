@@ -1,0 +1,8 @@
+app = 'whale-radar-notifier'
+primary_region = 'nrt'
+
+[build]
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
