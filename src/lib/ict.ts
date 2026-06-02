@@ -167,27 +167,26 @@ export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
   return sorted.slice(-10)
 }
 
-// 컨플루언스 3개 이상, 전체 봉 검사, 각 봉 시점 기준으로 FVG/OB/레벨 재계산 (미래 정보 배제)
+// 현재 유효한 FVG/OB/레벨 기준으로 신호 생성 — 차트에 보이는 레벨과 일치
 export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
   if (bars.length < 15) return []
+
+  // 전체 봉 기준으로 한 번만 계산 — 현재 미충전/미위반/미스윕 레벨만 사용
+  const allFvgs = detectFVGs(bars).filter(f => !f.filled)
+  const allObs = detectOrderBlocks(bars).filter(o => !o.violated)
+  const allLevels = detectLiquidityLevels(bars).filter(l => !l.swept)
+  const structure = detectMarketStructure(bars)
 
   const signals: ICTSignal[] = []
 
   // 마지막 봉(현재 진행 중인 봉) 제외, 15봉부터 전체 검사
   for (let idx = 15; idx < bars.length - 1; idx++) {
-    // 해당 시점까지의 봉만으로 구조물 재계산 — 미래 봉의 filled/violated/swept 정보 차단
-    const subset = bars.slice(0, idx + 1)
-    const fvgs = detectFVGs(subset)
-    const obs = detectOrderBlocks(subset)
-    const levels = detectLiquidityLevels(subset)
-    const structure = detectMarketStructure(subset)
-
     const bar = bars[idx]
     const buyReasons: string[] = []
     const sellReasons: string[] = []
 
-    // 해당 바 이전에 생성된 미충전 FVG 접촉
-    for (const fvg of fvgs.filter(f => f.ts < bar.ts && !f.filled)) {
+    // 현재 미충전 FVG 중 이 봉 이전에 생성된 것에 접촉
+    for (const fvg of allFvgs.filter(f => f.ts < bar.ts)) {
       if (fvg.type === 'bullish' && bar.low <= fvg.top && bar.high >= fvg.bottom) {
         if (!buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
       }
@@ -196,8 +195,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 해당 바 이전에 확정된 미위반 OB 접촉 (엔겔핑 봉 마감 이후만 유효)
-    for (const ob of obs.filter(o => o.confirmedTs < bar.ts && !o.violated)) {
+    // 현재 미위반 OB 중 이 봉 이전에 확정된 것에 접촉 (엔겔핑 봉 마감 이후만 유효)
+    for (const ob of allObs.filter(o => o.confirmedTs < bar.ts)) {
       if (ob.type === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
         if (!buyReasons.includes('OB↑')) buyReasons.push('OB↑')
       }
@@ -206,8 +205,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 유동성 스윕 (저점 스윕 후 종가 회복 = 매수 / 고점 스윕 후 종가 하락 = 매도)
-    for (const level of levels.filter(l => l.ts < bar.ts)) {
+    // 현재 미스윕 레벨 중 이 봉 이전에 생성된 것에 스윕
+    for (const level of allLevels.filter(l => l.ts < bar.ts)) {
       if (level.type === 'SSL' && bar.low < level.price && bar.close > level.price) {
         if (!buyReasons.includes('SSL스윕')) buyReasons.push('SSL스윕')
       }
