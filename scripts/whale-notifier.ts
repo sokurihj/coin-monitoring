@@ -158,7 +158,7 @@ async function poll() {
       SWAP_INSTRUMENTS.map(instId =>
         limit(async () => {
           const trades = await getTrades(instId, 500).catch(() => [])
-          return detectWhaleTrades(trades, instId, WHALE_THRESHOLDS.large)
+          return detectWhaleTrades(trades, instId, WHALE_THRESHOLDS.mega)
         })
       )
     )
