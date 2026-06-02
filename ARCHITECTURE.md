@@ -50,9 +50,9 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── scripts/whale-notifier.ts    # 독립 폴링 프로세스
                                    # 고래 체결: 5초 폴링 — large($300K+) 감지 시 텔레그램 전송
                                    # ICT 신호: 60초 폴링 — 15m/1H/4H × BTC/ETH/SOL, STRONG(컨플루언스 4개+)만 전송
-                                   # MAX_RUNTIME_MS 환경변수로 실행 시간 제한 (GitHub Actions용)
-  └── .github/workflows/whale-notifier.yml  # workflow_dispatch + schedule(*/5) — cron-job.org가 5분마다 외부 트리거
-                                            # concurrency: whale-notifier 그룹으로 중복 실행 방지
+  └── Dockerfile                   # Node.js 20 Alpine 기반 — npx tsx scripts/whale-notifier.ts 실행
+  └── fly.toml                     # Fly.io 배포 설정 — shared-cpu-1x / 256MB / nrt 리전 / 24시간 상시 실행
+  └── .github/workflows/whale-notifier.yml  # workflow_dispatch만 유지 (수동 실행용) — Fly.io 이전으로 스케줄 비활성화
 ```
 
 ### 컴포넌트 계층
