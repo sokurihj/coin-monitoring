@@ -225,8 +225,9 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       else sellReasons.push('프리미엄')
     }
 
-    // 최근 BOS/CHoCH 방향 컨텍스트
-    const prevStructure = structure.filter(s => s.ts < bar.ts)
+    // 최근 BOS/CHoCH 방향 컨텍스트 (최근 20봉 이내만 유효)
+    const bosLookbackTs = bars[Math.max(0, idx - 20)].ts
+    const prevStructure = structure.filter(s => s.ts < bar.ts && s.ts >= bosLookbackTs)
     const lastBos = prevStructure[prevStructure.length - 1]
     if (lastBos?.type === 'BOS_UP' || lastBos?.type === 'CHOCH_UP') buyReasons.push('BOS↑')
     if (lastBos?.type === 'BOS_DOWN' || lastBos?.type === 'CHOCH_DOWN') sellReasons.push('BOS↓')
