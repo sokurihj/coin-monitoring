@@ -30,6 +30,12 @@ function formatVol(v: number): string {
   return v.toFixed(0)
 }
 
+function formatPrice(v: number): string {
+  if (v >= 10000) return v.toFixed(0)
+  if (v >= 100) return v.toFixed(2)
+  return v.toFixed(4)
+}
+
 export function CandleChart() {
   const { selectedCoin } = useWhaleStore()
   const coin = selectedCoin === 'ALL' ? MONITORED_COINS[0] : selectedCoin
@@ -38,6 +44,7 @@ export function CandleChart() {
   const { data: bars = [] } = useCandles(coin, bar)
   const [ictEnabled, setIctEnabled] = useState(false)
   const [volLabel, setVolLabel] = useState<string | null>(null)
+  const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -138,12 +145,19 @@ export function CandleChart() {
     if (panes[2]) panes[2].setStretchFactor(0.15)
     if (panes[3]) panes[3].setStretchFactor(0.15)
 
-    // hover 시 거래량 수치 표시
+    // hover 시 OHLC + 거래량 수치 표시
     chart.subscribeCrosshairMove((param) => {
-      const volSeries = refs.current.volume
+      const { candle: candleSeries, volume: volSeries } = refs.current
       if (!volSeries) return
       const d = param.seriesData.get(volSeries) as { value: number } | undefined
       setVolLabel(d?.value != null ? formatVol(d.value) : null)
+
+      if (candleSeries) {
+        const cd = param.seriesData.get(candleSeries) as
+          | { open: number; high: number; low: number; close: number }
+          | undefined
+        setOhlcLabel(cd ? { o: cd.open, h: cd.high, l: cd.low, c: cd.close } : null)
+      }
     })
 
     const seriesMarkers = createSeriesMarkers(candle, [])
@@ -315,6 +329,18 @@ export function CandleChart() {
           <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
             RSI(14) · MACD(12,26,9)
           </span>
+          {ohlcLabel && (
+            <span className="ml-2 text-xs font-mono flex items-center gap-1">
+              <span style={{ color: '#64748b' }}>O</span>
+              <span style={{ color: ohlcLabel.c >= ohlcLabel.o ? '#00c076' : '#ff3b5c' }}>{formatPrice(ohlcLabel.o)}</span>
+              <span style={{ color: '#64748b' }}>H</span>
+              <span style={{ color: '#00c076' }}>{formatPrice(ohlcLabel.h)}</span>
+              <span style={{ color: '#64748b' }}>L</span>
+              <span style={{ color: '#ff3b5c' }}>{formatPrice(ohlcLabel.l)}</span>
+              <span style={{ color: '#64748b' }}>C</span>
+              <span style={{ color: ohlcLabel.c >= ohlcLabel.o ? '#00c076' : '#ff3b5c' }}>{formatPrice(ohlcLabel.c)}</span>
+            </span>
+          )}
           {volLabel && (
             <span className="ml-1.5 text-xs" style={{ color: '#64748b' }}>
               · Vol: {volLabel}
