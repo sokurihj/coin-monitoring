@@ -1,9 +1,18 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Poppins, Fira_Code } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-poppins',
+})
+
+const firaCode = Fira_Code({
+  subsets: ['latin'],
+  variable: '--font-fira-code',
+})
 
 export const metadata: Metadata = {
   title: 'Whale Radar',
@@ -13,7 +22,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className="dark h-full">
-      <body className={`${inter.variable} h-full antialiased`} style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
+      <body className={`${poppins.variable} ${firaCode.variable} h-full antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>
