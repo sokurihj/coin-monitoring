@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const instId = `${coin}-USDT-SWAP`
-    const raw = await getCandles(instId, bar, 100).catch(() => [])
+    const raw = await getCandles(instId, bar, 300).catch(() => [])
 
     const bars: CandleBar[] = raw.map(c => ({
       ts: Number(c[0]),
