@@ -274,7 +274,7 @@ export function CandleChart() {
 
     // 유동성 레벨: 미스윕 존 전체, 최근 4개 (얇은 박스로 표시)
     const TICK = currentPrice * 0.0004
-    const levels = detectLiquidityLevels(bars, 10).filter(l => !l.swept).slice(-4)
+    const levels = detectLiquidityLevels(bars, 15).filter(l => !l.swept).slice(-4)
     for (const level of levels) {
       zones.push({
         top: level.price + TICK,

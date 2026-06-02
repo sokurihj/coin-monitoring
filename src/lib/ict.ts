@@ -111,7 +111,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
 }
 
 // 스윙 고/저점 기반 유동성 풀 감지 (lookback 캔들 기준)
-export function detectLiquidityLevels(bars: CandleBar[], lookback = 5): LiquidityLevel[] {
+export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): LiquidityLevel[] {
   const levels: LiquidityLevel[] = []
 
   for (let i = lookback; i < bars.length - lookback; i++) {
