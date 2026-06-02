@@ -11,9 +11,13 @@ OKX Public API (https://www.okx.com/api/v5/...)
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
-                                   # generateICTSignals() — 컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만, 전체 봉 검사 (각 봉 시점 기준 FVG/OB 재계산)
+                                   # generateICTSignals() — 현재 미충전/미위반/미스윕 레벨 기준 (차트 표시와 일치)
+                                   #   컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만 검사
+                                   #   OB: confirmedTs(엔겔핑 봉 마감 시점) 이후 봉에서만 신호 발생
+                                   #   BOS: 최근 20봉 이내 구조 돌파만 유효
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
+                                   #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
                                    # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 반투명 박스 렌더링
@@ -69,7 +73,7 @@ app/dashboard/page.tsx
       │   └── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~4H)
       │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
-      │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커
+      │                            ICT 토글 — FVG/OB/Liquidity 박스 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
       │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       └── RightPanel (우, w-72)
           ├── FundingRateBar
