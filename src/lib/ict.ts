@@ -79,7 +79,8 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
 export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
   const obs: OrderBlock[] = []
 
-  for (let i = 0; i < bars.length - 1; i++) {
+  // bars.length - 2: next가 현재 진행 중인 봉(마지막)이 되지 않도록 제외
+  for (let i = 0; i < bars.length - 2; i++) {
     const ob = bars[i]
     const next = bars[i + 1]
     const body = Math.abs(ob.close - ob.open)
