@@ -11,10 +11,13 @@ OKX Public API (https://www.okx.com/api/v5/...)
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
-                                   # generateICTSignals() — 컨플루언스 3개 이상, 마감된 봉만
-                                   # detectLiquidityLevels() — lookback=10 (좌우 10봉 기준 스윙 고/저점만 BSL/SSL 인정)
+                                   # generateICTSignals() — 컨플루언스 3개=medium / 4개+=strong, 마감된 봉만, 최근 10봉 검사
+                                   # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효)
+                                   # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
+                                   # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
                                    # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 반투명 박스 렌더링
+                                   # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 3개, BSL/SSL 4개)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
@@ -42,7 +45,11 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
 
 텔레그램 알림 (백그라운드, 브라우저 불필요)
   └── src/lib/telegram.ts          # sendTelegramMessage() — Bot API 호출 헬퍼
-  └── scripts/whale-notifier.ts    # 독립 폴링 프로세스 — large($300K+) 감지 시 텔레그램 전송
+  └── src/lib/redis.ts             # ICT 신호 중복 방지: filterUnseenSignalKeys() / markSignalKeysSeen()
+                                   # 신호 키 포맷: ict:{coin}:{bar}:{ts}:{type}, TTL 24시간
+  └── scripts/whale-notifier.ts    # 독립 폴링 프로세스
+                                   # 고래 체결: 5초 폴링 — large($300K+) 감지 시 텔레그램 전송
+                                   # ICT 신호: 60초 폴링 — 15m/1H/4H × BTC/ETH/SOL, STRONG(컨플루언스 4개+)만 전송
                                    # MAX_RUNTIME_MS 환경변수로 실행 시간 제한 (GitHub Actions용)
   └── .github/workflows/whale-notifier.yml  # workflow_dispatch + schedule(*/5) — cron-job.org가 5분마다 외부 트리거
                                             # concurrency: whale-notifier 그룹으로 중복 실행 방지
