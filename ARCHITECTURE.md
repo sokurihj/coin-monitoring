@@ -11,7 +11,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
-                                   # generateICTSignals() — 컨플루언스 3개 이상, 마감된 봉만, ±1.5% 범위 필터
+                                   # generateICTSignals() — 컨플루언스 3개 이상, 마감된 봉만
                                    # detectLiquidityLevels() — lookback=10 (좌우 10봉 기준 스윙 고/저점만 BSL/SSL 인정)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
                                    # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 반투명 박스 렌더링
