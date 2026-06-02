@@ -12,7 +12,8 @@ export interface OrderBlock {
   type: 'bullish' | 'bearish'
   top: number
   bottom: number
-  ts: number
+  ts: number           // OB 캔들 자체의 타임스탬프
+  confirmedTs: number  // OB를 확정한 엔겔핑 캔들의 타임스탬프
   violated: boolean
 }
 
@@ -89,7 +90,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
       const top = ob.open
       const bottom = ob.close
       const violated = bars.slice(i + 1).some(b => b.close < bottom)
-      obs.push({ type: 'bullish', top, bottom, ts: ob.ts, violated })
+      obs.push({ type: 'bullish', top, bottom, ts: ob.ts, confirmedTs: next.ts, violated })
     }
 
     // Bearish OB: 초록 캔들을 다음 빨간 캔들이 몸통까지 덮음
@@ -97,7 +98,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
       const top = ob.close
       const bottom = ob.open
       const violated = bars.slice(i + 1).some(b => b.close > top)
-      obs.push({ type: 'bearish', top, bottom, ts: ob.ts, violated })
+      obs.push({ type: 'bearish', top, bottom, ts: ob.ts, confirmedTs: next.ts, violated })
     }
   }
 
@@ -195,8 +196,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 해당 바 이전에 생성된 미위반 OB 접촉
-    for (const ob of obs.filter(o => o.ts < bar.ts && !o.violated)) {
+    // 해당 바 이전에 확정된 미위반 OB 접촉 (엔겔핑 봉 마감 이후만 유효)
+    for (const ob of obs.filter(o => o.confirmedTs < bar.ts && !o.violated)) {
       if (ob.type === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
         if (!buyReasons.includes('OB↑')) buyReasons.push('OB↑')
       }
