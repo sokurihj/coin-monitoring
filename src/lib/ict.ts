@@ -74,36 +74,30 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
   return fvgs
 }
 
-// 강한 이동 직전 기관 주문 캔들 감지 (displacement ≥ body × 2.5)
+// 다음 캔들이 현재 캔들 몸통을 덮으면 OB로 감지
 export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
   const obs: OrderBlock[] = []
-  const DISPLACEMENT = 2.5
 
-  for (let i = 0; i < bars.length - 2; i++) {
+  for (let i = 0; i < bars.length - 1; i++) {
     const ob = bars[i]
+    const next = bars[i + 1]
     const body = Math.abs(ob.close - ob.open)
     if (body === 0) continue
 
-    // Bullish OB: 음봉 이후 강한 상승
-    if (ob.close < ob.open) {
-      const displacement = bars[i + 1].close - ob.close
-      if (displacement > DISPLACEMENT * body) {
-        const top = ob.open
-        const bottom = ob.close
-        const violated = bars.slice(i + 1).some(b => b.close < bottom)
-        obs.push({ type: 'bullish', top, bottom, ts: ob.ts, violated })
-      }
+    // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음
+    if (ob.close < ob.open && next.close > ob.open) {
+      const top = ob.open
+      const bottom = ob.close
+      const violated = bars.slice(i + 1).some(b => b.close < bottom)
+      obs.push({ type: 'bullish', top, bottom, ts: ob.ts, violated })
     }
 
-    // Bearish OB: 양봉 이후 강한 하락
-    if (ob.close > ob.open) {
-      const displacement = ob.close - bars[i + 1].close
-      if (displacement > DISPLACEMENT * body) {
-        const top = ob.close
-        const bottom = ob.open
-        const violated = bars.slice(i + 1).some(b => b.close > top)
-        obs.push({ type: 'bearish', top, bottom, ts: ob.ts, violated })
-      }
+    // Bearish OB: 초록 캔들을 다음 빨간 캔들이 몸통까지 덮음
+    if (ob.close > ob.open && next.close < ob.open) {
+      const top = ob.close
+      const bottom = ob.open
+      const violated = bars.slice(i + 1).some(b => b.close > top)
+      obs.push({ type: 'bearish', top, bottom, ts: ob.ts, violated })
     }
   }
 
