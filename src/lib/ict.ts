@@ -44,7 +44,7 @@ const MIN_FVG_RATIO = 0.003
 export function detectFVGs(bars: CandleBar[]): FVG[] {
   const fvgs: FVG[] = []
 
-  for (let i = 2; i < bars.length; i++) {
+  for (let i = 2; i < bars.length - 1; i++) {
     const c1 = bars[i - 2]
     const c2 = bars[i - 1]
     const c3 = bars[i]
