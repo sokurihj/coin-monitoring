@@ -216,14 +216,14 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 프리미엄/할인 구간 (이전 20봉 레인지 기준)
+    // 프리미엄/할인 구간 (이전 20봉 레인지 상하위 30%만 유효)
     const ctx = bars.slice(Math.max(0, idx - 20), idx)
     if (ctx.length >= 10) {
       const hi = Math.max(...ctx.map(b => b.high))
       const lo = Math.min(...ctx.map(b => b.low))
-      const mid = (hi + lo) / 2
-      if (bar.close < mid) buyReasons.push('할인구간')
-      else sellReasons.push('프리미엄')
+      const range = hi - lo
+      if (bar.close <= lo + range * 0.3) buyReasons.push('할인구간')
+      else if (bar.close >= hi - range * 0.3) sellReasons.push('프리미엄')
     }
 
     // 최근 BOS/CHoCH 방향 컨텍스트 (최근 20봉 이내만 유효)
