@@ -3,6 +3,7 @@ import pLimit from 'p-limit'
 import { getSwapInstruments, getTrades } from '@/lib/okx/public-api'
 import { detectWhaleTrades, updateCtValCache } from '@/lib/whale-detector'
 import { SWAP_INSTRUMENTS, WHALE_THRESHOLDS } from '@/lib/constants'
+import { hasRedisConfig, getWhaleTradesFromRedis } from '@/lib/redis'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     const instData = await getSwapInstruments().catch(() => [])
     if (instData.length > 0) updateCtValCache(instData)
 
+    // OKX 실시간 조회
     const results = await Promise.all(
       instruments.map(instId =>
         limit(async () => {
@@ -30,13 +32,28 @@ export async function GET(req: NextRequest) {
         })
       )
     )
+    const live = results.flat()
 
-    const all = results
-      .flat()
+    // Redis 저장 데이터 합산 (설정된 경우)
+    const stored = hasRedisConfig()
+      ? await getWhaleTradesFromRedis(200).catch(() => [])
+      : []
+
+    // 중복 제거 후 정렬
+    const seenIds = new Set<string>()
+    const all: typeof live = []
+    for (const t of [...live, ...stored]) {
+      if (!seenIds.has(t.id)) {
+        seenIds.add(t.id)
+        all.push(t)
+      }
+    }
+
+    const sorted = all
       .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 100)
+      .slice(0, 200)
 
-    return NextResponse.json({ trades: all, fetchedAt: Date.now() })
+    return NextResponse.json({ trades: sorted, fetchedAt: Date.now() })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
