@@ -252,9 +252,13 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     for (const fvg of fvgs.filter(f => f.ts < bar.ts)) {
       if (fvg.type === 'bullish' && bar.low <= fvg.top && bar.high >= fvg.bottom) {
         if (!buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
+        // 꼬리 리젝션: 종가가 존 위로 복귀
+        if (bar.close > fvg.top && !buyReasons.includes('FVG↑리젝')) buyReasons.push('FVG↑리젝')
       }
       if (fvg.type === 'bearish' && bar.high >= fvg.bottom && bar.low <= fvg.top) {
         if (!sellReasons.includes('FVG↓')) sellReasons.push('FVG↓')
+        // 꼬리 리젝션: 종가가 존 아래로 복귀
+        if (bar.close < fvg.bottom && !sellReasons.includes('FVG↓리젝')) sellReasons.push('FVG↓리젝')
       }
     }
 
@@ -262,9 +266,13 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     for (const ob of obs.filter(o => o.confirmedTs < bar.ts)) {
       if (ob.type === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
         if (!buyReasons.includes('OB↑')) buyReasons.push('OB↑')
+        // 꼬리 리젝션: 종가가 존 위로 복귀
+        if (bar.close > ob.top && !buyReasons.includes('OB↑리젝')) buyReasons.push('OB↑리젝')
       }
       if (ob.type === 'bearish' && bar.high >= ob.bottom && bar.low <= ob.top) {
         if (!sellReasons.includes('OB↓')) sellReasons.push('OB↓')
+        // 꼬리 리젝션: 종가가 존 아래로 복귀
+        if (bar.close < ob.bottom && !sellReasons.includes('OB↓리젝')) sellReasons.push('OB↓리젝')
       }
     }
 
