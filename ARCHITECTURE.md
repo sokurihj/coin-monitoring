@@ -13,10 +13,13 @@ ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
                                    # generateICTSignals() — 봉 마감 시점 기준 (bars[0..idx]로 소급 방지)
                                    #   컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만 검사
+                                   #   캔들 방향 조건 없음 — 양봉/음봉 무관하게 컨플루언스 충족 시 신호 발생
+                                   #   FVG: 이전 봉이 이미 접촉 중이면 제외 (존 최초 진입 봉에만 FVG 카운트)
                                    #   OB: confirmedTs(엔겔핑 봉 마감 시점) 이후 봉에서만 신호 발생
                                    #   BOS/CHoCH는 신호 컨플루언스에서 제외 — 차트 라인 전용
                                    #   각 봉 평가 시 그 봉 당시 미충전/미위반/미스윕 레벨로 재계산 (차트 표시와 불일치 가능)
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
+                                   #   filled: wick/body가 갭 반대 끝까지 도달 시 소멸 (bullish=low≤bottom, bearish=high≥top)
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
@@ -52,6 +55,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── hooks/useCvd.ts              # 5s 폴링
   └── hooks/useLiquidations.ts     # 10s 폴링
   └── hooks/useOrderBook.ts        # 3s 폴링
+  └── hooks/useTickers.ts          # 5s 폴링
 
 상태 관리
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
@@ -65,7 +69,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── src/lib/redis.ts             # ICT 신호 중복 방지: filterUnseenSignalKeys() / markSignalKeysSeen()
                                    # 신호 키 포맷: ict:{coin}:{bar}:{ts}:{type}, TTL 24시간
   └── scripts/whale-notifier.ts    # 독립 폴링 프로세스
-                                   # 고래 체결: 5초 폴링 — large($300K+) 감지 시 텔레그램 전송
+                                   # 고래 체결: 5초 폴링 — mega($1M+) 감지 시 텔레그램 전송
                                    # ICT 신호: 60초 폴링 — 15m/1H/4H × BTC/ETH/SOL, MEDIUM(3개+) 이상 전송
                                    # 고래 체결: mega($1M+)만 전송 (large 제외)
   └── Dockerfile                   # Node.js 20 Alpine 기반 — npx tsx scripts/whale-notifier.ts 실행

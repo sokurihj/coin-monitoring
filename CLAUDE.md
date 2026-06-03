@@ -38,6 +38,8 @@ fly status       # 머신 상태 확인
 | `TELEGRAM_BOT_TOKEN` | — | 텔레그램 알림 활성화 (BotFather 발급) |
 | `TELEGRAM_CHAT_ID` | — | 텔레그램 수신 채팅 ID |
 | `MAX_RUNTIME_MS` | — | 노티파이어 최대 실행 시간 ms (로컬/CI용, Fly.io에서는 미설정) |
+| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis URL (ICT 신호·고래 중복 방지) |
+| `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis 인증 토큰 |
 
 ## 모니터링 대상 코인
 
