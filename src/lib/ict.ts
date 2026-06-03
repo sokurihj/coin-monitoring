@@ -27,7 +27,8 @@ export interface LiquidityLevel {
 export interface StructurePoint {
   type: 'BOS_UP' | 'BOS_DOWN' | 'CHOCH_UP' | 'CHOCH_DOWN'
   price: number
-  ts: number
+  ts: number        // 돌파 봉 타임스탬프
+  originTs: number  // 깨진 스윙 원점 봉 타임스탬프
 }
 
 export interface ICTSignal {
@@ -136,46 +137,51 @@ export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): Liquidi
 }
 
 // 구조 돌파(BOS) 및 추세 전환(CHoCH) 감지
-// 좌측 5봉 기준 스윙 포인트를 실시간 확정하고, 실제 돌파 봉의 ts를 BOS 타임스탬프로 사용
+// 좌측 20봉 + 우측 5봉으로 스윙 확정, 몸통(종가) 돌파 시 BOS/CHoCH 판별
+// - BOS: 현재 추세 방향과 같은 스윙 레벨 돌파 (추세 지속)
+// - CHoCH: 현재 추세 반대 방향 스윙 레벨 돌파 (추세 반전)
 export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
   const points: StructurePoint[] = []
-  const leftLookback = 5
+  const leftLookback = 20
+  const rightLookback = 5
 
   let lastSwingHigh: { price: number; ts: number } | null = null
   let lastSwingLow: { price: number; ts: number } | null = null
+  let trend: 'up' | 'down' | null = null
 
-  for (let i = leftLookback; i < bars.length; i++) {
+  for (let i = leftLookback; i < bars.length - rightLookback; i++) {
     const bar = bars[i]
     const left = bars.slice(i - leftLookback, i)
+    const right = bars.slice(i + 1, i + 1 + rightLookback)
 
-    // 좌측 N봉보다 고점이 높으면 스윙 고점 확정 (우측 lookback 없이 즉시)
-    if (left.every(b => b.high < bar.high)) {
-      if (lastSwingHigh !== null && bar.high > lastSwingHigh.price) {
-        points.push({ type: 'BOS_UP', price: bar.high, ts: bar.ts })
-      }
+    // 스윙 고점 돌파 — 하락 추세 중이면 CHoCH_UP(반전), 아니면 BOS_UP(지속)
+    if (lastSwingHigh !== null && bar.close > lastSwingHigh.price) {
+      const type = trend === 'down' ? 'CHOCH_UP' : 'BOS_UP'
+      points.push({ type, price: lastSwingHigh.price, ts: bar.ts, originTs: lastSwingHigh.ts })
+      trend = 'up'
+      lastSwingHigh = null
+    }
+
+    // 스윙 저점 돌파 — 상승 추세 중이면 CHoCH_DOWN(반전), 아니면 BOS_DOWN(지속)
+    if (lastSwingLow !== null && bar.close < lastSwingLow.price) {
+      const type = trend === 'up' ? 'CHOCH_DOWN' : 'BOS_DOWN'
+      points.push({ type, price: lastSwingLow.price, ts: bar.ts, originTs: lastSwingLow.ts })
+      trend = 'down'
+      lastSwingLow = null
+    }
+
+    // 스윙 고점 확정 (좌측 20봉 + 우측 5봉)
+    if (left.every(b => b.high < bar.high) && right.every(b => b.high < bar.high)) {
       lastSwingHigh = { price: bar.high, ts: bar.ts }
     }
 
-    // 좌측 N봉보다 저점이 낮으면 스윙 저점 확정
-    if (left.every(b => b.low > bar.low)) {
-      if (lastSwingLow !== null && bar.low < lastSwingLow.price) {
-        points.push({ type: 'BOS_DOWN', price: bar.low, ts: bar.ts })
-      }
+    // 스윙 저점 확정 (좌측 20봉 + 우측 5봉)
+    if (left.every(b => b.low > bar.low) && right.every(b => b.low > bar.low)) {
       lastSwingLow = { price: bar.low, ts: bar.ts }
     }
   }
 
-  // 인접한 BOS 방향이 뒤바뀌면 CHoCH로 재분류
-  const sorted = points.sort((a, b) => a.ts - b.ts)
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i - 1].type === 'BOS_UP' && sorted[i].type === 'BOS_DOWN') {
-      sorted[i] = { ...sorted[i], type: 'CHOCH_DOWN' }
-    } else if (sorted[i - 1].type === 'BOS_DOWN' && sorted[i].type === 'BOS_UP') {
-      sorted[i] = { ...sorted[i], type: 'CHOCH_UP' }
-    }
-  }
-
-  return sorted.slice(-10)
+  return points.slice(-10)
 }
 
 // 봉 마감 시점 기준으로 신호 생성 — 각 봉을 그 당시 상황(bars[0..idx])으로 평가해 소급 방지
@@ -192,7 +198,6 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     const fvgs = detectFVGs(sub).filter(f => !f.filled)
     const obs = detectOrderBlocks(sub).filter(o => !o.violated)
     const levels = detectLiquidityLevels(sub).filter(l => !l.swept)
-    const structure = detectMarketStructure(sub)
 
     const buyReasons: string[] = []
     const sellReasons: string[] = []
@@ -236,13 +241,6 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       if (bar.close <= lo + range * 0.3) buyReasons.push('할인구간')
       else if (bar.close >= hi - range * 0.3) sellReasons.push('프리미엄')
     }
-
-    // 최근 BOS/CHoCH 방향 컨텍스트 (최근 20봉 이내만 유효)
-    const bosLookbackTs = bars[Math.max(0, idx - 20)].ts
-    const prevStructure = structure.filter(s => s.ts < bar.ts && s.ts >= bosLookbackTs)
-    const lastBos = prevStructure[prevStructure.length - 1]
-    if (lastBos?.type === 'BOS_UP' || lastBos?.type === 'CHOCH_UP') buyReasons.push('BOS↑')
-    if (lastBos?.type === 'BOS_DOWN' || lastBos?.type === 'CHOCH_DOWN') sellReasons.push('BOS↓')
 
     // 컨플루언스 3개 이상 + FVG/OB 접촉 필수 + 캔들 방향 확인 (중복 신호 방지)
     const hasBuyZone = buyReasons.includes('FVG↑') || buyReasons.includes('OB↑')

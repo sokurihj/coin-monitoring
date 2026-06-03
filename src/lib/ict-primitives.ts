@@ -6,6 +6,7 @@ export interface ZoneBox {
   alpha: number
   label: string
   lineMode?: boolean  // true면 단일 수평선으로 렌더링 (BSL/SSL용)
+  endTs?: number      // lineMode일 때 선 끝점 Unix seconds (없으면 차트 우측 끝)
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -74,27 +75,31 @@ export class ZoneBoxesPrimitive {
                   if (width <= 0) continue
 
                   if (zone.lineMode) {
-                    // 단일 수평 점선 (BSL/SSL)
+                    // 단일 수평 점선 (BSL/SSL/BOS)
                     const price = (zone.top + zone.bottom) / 2
                     const y = self._series.priceToCoordinate(price)
                     if (y == null) continue
                     const yPx = Math.round(y * vpr)
+
+                    const x2Raw = zone.endTs ? timeScale.timeToCoordinate(zone.endTs) : null
+                    const lineEnd = x2Raw != null ? Math.round(x2Raw * hpr) : canvasWidth
 
                     ctx.strokeStyle = zone.color
                     ctx.lineWidth = Math.round(1 * vpr)
                     ctx.setLineDash([Math.round(4 * hpr), Math.round(4 * hpr)])
                     ctx.beginPath()
                     ctx.moveTo(left, yPx)
-                    ctx.lineTo(right, yPx)
+                    ctx.lineTo(lineEnd, yPx)
                     ctx.stroke()
                     ctx.setLineDash([])
 
-                    // 레이블 — 우측
+                    // 레이블 — endTs가 있으면 선 중간, 없으면 우측 끝
                     const fontSize = Math.round(9 * vpr)
                     ctx.fillStyle = zone.color
                     ctx.font = `${fontSize}px monospace`
-                    ctx.textAlign = 'right'
-                    ctx.fillText(zone.label, right - Math.round(4 * hpr), yPx - Math.round(3 * vpr))
+                    const labelX = zone.endTs ? Math.round((left + lineEnd) / 2) : lineEnd - Math.round(4 * hpr)
+                    ctx.textAlign = 'center'
+                    ctx.fillText(zone.label, labelX, yPx - Math.round(3 * vpr))
                   } else {
                     const y1 = self._series.priceToCoordinate(zone.top)
                     const y2 = self._series.priceToCoordinate(zone.bottom)

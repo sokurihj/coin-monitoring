@@ -15,6 +15,7 @@ import {
   detectFVGs,
   detectOrderBlocks,
   detectLiquidityLevels,
+  detectMarketStructure,
   generateICTSignals,
   type ICTSignal,
 } from '@/lib/ict'
@@ -320,6 +321,22 @@ export function CandleChart() {
         color: level.type === 'BSL' ? '#fbbf24' : '#22d3ee',
         alpha: 0.25,
         label: level.type,
+        lineMode: true,
+      })
+    }
+
+    // BOS/CHoCH 구조 라인: 최근 4개 (수평 점선으로 표시)
+    const bosLabels: Record<string, string> = { BOS_UP: 'BOS↑', BOS_DOWN: 'BOS↓', CHOCH_UP: 'CHoCH↑', CHOCH_DOWN: 'CHoCH↓' }
+    const structure = detectMarketStructure(bars).slice(-4)
+    for (const pt of structure) {
+      zones.push({
+        top: pt.price,
+        bottom: pt.price,
+        startTs: pt.originTs / 1000,
+        endTs: pt.ts / 1000,
+        color: '#ffffff',
+        alpha: 0.25,
+        label: bosLabels[pt.type] ?? pt.type,
         lineMode: true,
       })
     }
