@@ -5,7 +5,8 @@ export interface FVG {
   top: number
   bottom: number
   ts: number
-  filled: boolean
+  filled: boolean      // 표시용: 갭 반대쪽 끝까지 완전히 채워졌을 때
+  signalFilled: boolean  // 신호용: 종가가 중간값을 넘었을 때
 }
 
 export interface OrderBlock {
@@ -57,8 +58,10 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c3.low
       const bottom = c1.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
+      const mid = (top + bottom) / 2
       const filled = bars.slice(i + 1).some(b => b.low <= bottom)
-      fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled })
+      const signalFilled = bars.slice(i + 1).some(b => b.close <= mid)
+      fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled, signalFilled })
     }
 
     // Bearish FVG: 캔들1 저가 > 캔들3 고가
@@ -66,8 +69,10 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c1.low
       const bottom = c3.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
+      const mid = (top + bottom) / 2
       const filled = bars.slice(i + 1).some(b => b.high >= top)
-      fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled })
+      const signalFilled = bars.slice(i + 1).some(b => b.close >= mid)
+      fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled, signalFilled })
     }
   }
 
@@ -239,7 +244,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     const bar = bars[idx]
     // 이 봉이 마감된 시점까지의 데이터로만 레벨 계산 (소급 방지)
     const sub = bars.slice(0, idx + 1)
-    const fvgs = detectFVGs(sub).filter(f => !f.filled)
+    const fvgs = detectFVGs(sub).filter(f => !f.filled && !f.signalFilled)
     const obs = detectOrderBlocks(sub).filter(o => !o.violated)
     const levels = detectLiquidityLevels(sub).filter(l => !l.swept)
 
