@@ -5,8 +5,7 @@ export interface FVG {
   top: number
   bottom: number
   ts: number
-  filled: boolean      // 표시용: 갭 반대쪽 끝까지 완전히 채워졌을 때
-  signalFilled: boolean  // 신호용: 종가가 중간값을 넘었을 때
+  filled: boolean
 }
 
 export interface OrderBlock {
@@ -58,10 +57,8 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c3.low
       const bottom = c1.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
-      const mid = (top + bottom) / 2
       const filled = bars.slice(i + 1).some(b => b.low <= bottom)
-      const signalFilled = bars.slice(i + 1).some(b => b.close <= mid)
-      fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled, signalFilled })
+      fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled })
     }
 
     // Bearish FVG: 캔들1 저가 > 캔들3 고가
@@ -69,10 +66,8 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c1.low
       const bottom = c3.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
-      const mid = (top + bottom) / 2
       const filled = bars.slice(i + 1).some(b => b.high >= top)
-      const signalFilled = bars.slice(i + 1).some(b => b.close >= mid)
-      fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled, signalFilled })
+      fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled })
     }
   }
 
@@ -244,20 +239,23 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     const bar = bars[idx]
     // 이 봉이 마감된 시점까지의 데이터로만 레벨 계산 (소급 방지)
     const sub = bars.slice(0, idx + 1)
-    const fvgs = detectFVGs(sub).filter(f => !f.filled && !f.signalFilled)
+    const fvgs = detectFVGs(sub).filter(f => !f.filled)
     const obs = detectOrderBlocks(sub).filter(o => !o.violated)
     const levels = detectLiquidityLevels(sub).filter(l => !l.swept)
 
     const buyReasons: string[] = []
     const sellReasons: string[] = []
+    const prevBar = bars[idx - 1]
 
-    // 이 봉 이전에 생성된 미충전 FVG에 접촉
+    // 이 봉 이전에 생성된 미충전 FVG에 접촉 (이전 봉이 이미 접촉 중이면 새 진입 아님 → 제외)
     for (const fvg of fvgs.filter(f => f.ts < bar.ts)) {
       if (fvg.type === 'bullish' && bar.low <= fvg.top && bar.high >= fvg.bottom) {
-        if (!buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
+        const prevTouching = prevBar && prevBar.low <= fvg.top && prevBar.high >= fvg.bottom
+        if (!prevTouching && !buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
       }
       if (fvg.type === 'bearish' && bar.high >= fvg.bottom && bar.low <= fvg.top) {
-        if (!sellReasons.includes('FVG↓')) sellReasons.push('FVG↓')
+        const prevTouching = prevBar && prevBar.high >= fvg.bottom && prevBar.low <= fvg.top
+        if (!prevTouching && !sellReasons.includes('FVG↓')) sellReasons.push('FVG↓')
       }
     }
 
@@ -296,7 +294,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     const hasSellZone = sellReasons.includes('FVG↓') || sellReasons.includes('OB↓')
     const alreadySignaled = signals.some(s => s.ts === bar.ts)
     if (!alreadySignaled) {
-      if (buyReasons.length >= 3 && hasBuyZone && bar.close > bar.open) {
+      if (buyReasons.length >= 3 && hasBuyZone) {
         signals.push({
           type: 'BUY',
           strength: buyReasons.length >= 4 ? 'strong' : 'medium',
@@ -304,7 +302,7 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
           ts: bar.ts,
           reasons: buyReasons,
         })
-      } else if (sellReasons.length >= 3 && hasSellZone && bar.close < bar.open) {
+      } else if (sellReasons.length >= 3 && hasSellZone) {
         signals.push({
           type: 'SELL',
           strength: sellReasons.length >= 4 ? 'strong' : 'medium',
