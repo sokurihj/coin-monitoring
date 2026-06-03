@@ -136,22 +136,32 @@ export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): Liquidi
 }
 
 // 구조 돌파(BOS) 및 추세 전환(CHoCH) 감지
+// 좌측 5봉 기준 스윙 포인트를 실시간 확정하고, 실제 돌파 봉의 ts를 BOS 타임스탬프로 사용
 export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
-  const levels = detectLiquidityLevels(bars)
   const points: StructurePoint[] = []
+  const leftLookback = 5
 
-  const highs = levels.filter(l => l.type === 'BSL').sort((a, b) => a.ts - b.ts)
-  const lows = levels.filter(l => l.type === 'SSL').sort((a, b) => a.ts - b.ts)
+  let lastSwingHigh: { price: number; ts: number } | null = null
+  let lastSwingLow: { price: number; ts: number } | null = null
 
-  for (let i = 1; i < highs.length; i++) {
-    if (highs[i].price > highs[i - 1].price) {
-      points.push({ type: 'BOS_UP', price: highs[i].price, ts: highs[i].ts })
+  for (let i = leftLookback; i < bars.length; i++) {
+    const bar = bars[i]
+    const left = bars.slice(i - leftLookback, i)
+
+    // 좌측 N봉보다 고점이 높으면 스윙 고점 확정 (우측 lookback 없이 즉시)
+    if (left.every(b => b.high < bar.high)) {
+      if (lastSwingHigh !== null && bar.high > lastSwingHigh.price) {
+        points.push({ type: 'BOS_UP', price: bar.high, ts: bar.ts })
+      }
+      lastSwingHigh = { price: bar.high, ts: bar.ts }
     }
-  }
 
-  for (let i = 1; i < lows.length; i++) {
-    if (lows[i].price < lows[i - 1].price) {
-      points.push({ type: 'BOS_DOWN', price: lows[i].price, ts: lows[i].ts })
+    // 좌측 N봉보다 저점이 낮으면 스윙 저점 확정
+    if (left.every(b => b.low > bar.low)) {
+      if (lastSwingLow !== null && bar.low < lastSwingLow.price) {
+        points.push({ type: 'BOS_DOWN', price: bar.low, ts: bar.ts })
+      }
+      lastSwingLow = { price: bar.low, ts: bar.ts }
     }
   }
 
@@ -168,26 +178,27 @@ export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
   return sorted.slice(-10)
 }
 
-// 현재 유효한 FVG/OB/레벨 기준으로 신호 생성 — 차트에 보이는 레벨과 일치
+// 봉 마감 시점 기준으로 신호 생성 — 각 봉을 그 당시 상황(bars[0..idx])으로 평가해 소급 방지
 export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
   if (bars.length < 15) return []
 
-  // 전체 봉 기준으로 한 번만 계산 — 현재 미충전/미위반/미스윕 레벨만 사용
-  const allFvgs = detectFVGs(bars).filter(f => !f.filled)
-  const allObs = detectOrderBlocks(bars).filter(o => !o.violated)
-  const allLevels = detectLiquidityLevels(bars).filter(l => !l.swept)
-  const structure = detectMarketStructure(bars)
-
   const signals: ICTSignal[] = []
 
-  // 마지막 봉(현재 진행 중인 봉) 제외, 15봉부터 전체 검사
+  // 마지막 봉(현재 진행 중인 봉) 제외, 15봉부터 검사
   for (let idx = 15; idx < bars.length - 1; idx++) {
     const bar = bars[idx]
+    // 이 봉이 마감된 시점까지의 데이터로만 레벨 계산 (소급 방지)
+    const sub = bars.slice(0, idx + 1)
+    const fvgs = detectFVGs(sub).filter(f => !f.filled)
+    const obs = detectOrderBlocks(sub).filter(o => !o.violated)
+    const levels = detectLiquidityLevels(sub).filter(l => !l.swept)
+    const structure = detectMarketStructure(sub)
+
     const buyReasons: string[] = []
     const sellReasons: string[] = []
 
-    // 현재 미충전 FVG 중 이 봉 이전에 생성된 것에 접촉
-    for (const fvg of allFvgs.filter(f => f.ts < bar.ts)) {
+    // 이 봉 이전에 생성된 미충전 FVG에 접촉
+    for (const fvg of fvgs.filter(f => f.ts < bar.ts)) {
       if (fvg.type === 'bullish' && bar.low <= fvg.top && bar.high >= fvg.bottom) {
         if (!buyReasons.includes('FVG↑')) buyReasons.push('FVG↑')
       }
@@ -196,8 +207,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 현재 미위반 OB 중 이 봉 이전에 확정된 것에 접촉 (엔겔핑 봉 마감 이후만 유효)
-    for (const ob of allObs.filter(o => o.confirmedTs < bar.ts)) {
+    // 이 봉 이전에 확정된 미위반 OB에 접촉
+    for (const ob of obs.filter(o => o.confirmedTs < bar.ts)) {
       if (ob.type === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
         if (!buyReasons.includes('OB↑')) buyReasons.push('OB↑')
       }
@@ -206,8 +217,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 현재 미스윕 레벨 중 이 봉 이전에 생성된 것에 스윕
-    for (const level of allLevels.filter(l => l.ts < bar.ts)) {
+    // 이 봉 이전에 생성된 미스윕 레벨 스윕
+    for (const level of levels.filter(l => l.ts < bar.ts)) {
       if (level.type === 'SSL' && bar.low < level.price && bar.close > level.price) {
         if (!buyReasons.includes('SSL스윕')) buyReasons.push('SSL스윕')
       }

@@ -22,7 +22,7 @@ import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
 
 const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
 
-const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H'] as const
+const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H', '1D', '1W'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
 
 function formatVol(v: number): string {
@@ -41,6 +41,7 @@ export function CandleChart() {
   const { selectedCoin } = useWhaleStore()
   const coin = selectedCoin === 'ALL' ? MONITORED_COINS[0] : selectedCoin
   const [bar, setBar] = useState<Timeframe>('1m')
+  const barRef = useRef<Timeframe>('1m')
 
   const { data: bars = [] } = useCandles(coin, bar)
   const [volLabel, setVolLabel] = useState<string | null>(null)
@@ -70,6 +71,9 @@ export function CandleChart() {
         // crosshair tooltip 시간 → KST
         timeFormatter: (ts: number) => {
           const d = new Date((ts + KST_OFFSET) * 1000)
+          if (barRef.current === '1D' || barRef.current === '1W') {
+            return d.toISOString().slice(0, 10)
+          }
           return d.toISOString().slice(0, 16).replace('T', ' ')
         },
       },
@@ -77,9 +81,14 @@ export function CandleChart() {
         borderColor: '#1e2330',
         timeVisible: true,
         secondsVisible: false,
-        // x축 눈금 라벨 → KST
+        // x축 눈금 라벨 → KST (일봉/주봉은 날짜 형식)
         tickMarkFormatter: (ts: number) => {
           const d = new Date((ts + KST_OFFSET) * 1000)
+          if (barRef.current === '1D' || barRef.current === '1W') {
+            const mo = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const dd = String(d.getUTCDate()).padStart(2, '0')
+            return `${mo}/${dd}`
+          }
           const hh = String(d.getUTCHours()).padStart(2, '0')
           const mm = String(d.getUTCMinutes()).padStart(2, '0')
           return `${hh}:${mm}`
@@ -197,6 +206,7 @@ export function CandleChart() {
     const { candle, volume, rsi, macdHist, macdLine, signalLine, chart } = refs.current
     if (!bars.length || !candle) return
 
+    barRef.current = bar
     const isNewContext = refs.current.lastCoin !== coin || refs.current.lastBar !== bar
 
     const closes = bars.map(b => b.close)
