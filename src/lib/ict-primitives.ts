@@ -5,8 +5,9 @@ export interface ZoneBox {
   color: string
   alpha: number
   label: string
-  lineMode?: boolean  // true면 단일 수평선으로 렌더링 (BSL/SSL용)
-  endTs?: number      // lineMode일 때 선 끝점 Unix seconds (없으면 차트 우측 끝)
+  lineMode?: boolean   // true면 단일 수평선으로 렌더링 (BSL/SSL용)
+  endTs?: number       // lineMode일 때 선 끝점 Unix seconds (없으면 차트 우측 끝)
+  labelBelow?: boolean // true면 레이블을 선 아래에 표시 (기본: 위)
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -93,13 +94,14 @@ export class ZoneBoxesPrimitive {
                     ctx.stroke()
                     ctx.setLineDash([])
 
-                    // 레이블 — endTs가 있으면 선 중간, 없으면 우측 끝
+                    // 레이블 — endTs가 있으면 선 중간, 없으면 우측 끝 / labelBelow면 선 아래
                     const fontSize = Math.round(9 * vpr)
                     ctx.fillStyle = zone.color
                     ctx.font = `${fontSize}px monospace`
                     const labelX = zone.endTs ? Math.round((left + lineEnd) / 2) : lineEnd - Math.round(4 * hpr)
+                    const labelY = zone.labelBelow ? yPx + fontSize + Math.round(2 * vpr) : yPx - Math.round(3 * vpr)
                     ctx.textAlign = 'center'
-                    ctx.fillText(zone.label, labelX, yPx - Math.round(3 * vpr))
+                    ctx.fillText(zone.label, labelX, labelY)
                   } else {
                     const y1 = self._series.priceToCoordinate(zone.top)
                     const y2 = self._series.priceToCoordinate(zone.bottom)

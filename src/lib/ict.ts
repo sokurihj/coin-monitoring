@@ -137,47 +137,93 @@ export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): Liquidi
 }
 
 // 구조 돌파(BOS) 및 추세 전환(CHoCH) 감지
-// 좌측 20봉 + 우측 5봉으로 스윙 확정, 몸통(종가) 돌파 시 BOS/CHoCH 판별
+// 좌측 10봉 + 우측 5봉으로 스윙 확정 — 직전 상승/하락 구간의 꼭지/바닥을 기준으로 삼음
 // - BOS: 현재 추세 방향과 같은 스윙 레벨 돌파 (추세 지속)
 // - CHoCH: 현재 추세 반대 방향 스윙 레벨 돌파 (추세 반전)
 export function detectMarketStructure(bars: CandleBar[]): StructurePoint[] {
   const points: StructurePoint[] = []
-  const leftLookback = 20
+  const leftLookback = 10
   const rightLookback = 5
 
   let lastSwingHigh: { price: number; ts: number } | null = null
   let lastSwingLow: { price: number; ts: number } | null = null
   let trend: 'up' | 'down' | null = null
+  let peakInDowntrend: { price: number; ts: number } | null = null
+  let valleyInUptrend: { price: number; ts: number } | null = null
+
+  // 루프 밖 초기 봉(0~leftLookback-1)도 포함해 누적 최고/최저 추적
+  // → 루프가 leftLookback부터 시작해도 그 이전 꼭지/바닥을 놓치지 않음
+  let runningMaxHigh: { price: number; ts: number } | null = null
+  let runningMinLow: { price: number; ts: number } | null = null
+  for (let j = 0; j < Math.min(leftLookback, bars.length); j++) {
+    if (runningMaxHigh === null || bars[j].high > runningMaxHigh.price)
+      runningMaxHigh = { price: bars[j].high, ts: bars[j].ts }
+    if (runningMinLow === null || bars[j].low < runningMinLow.price)
+      runningMinLow = { price: bars[j].low, ts: bars[j].ts }
+  }
 
   for (let i = leftLookback; i < bars.length - rightLookback; i++) {
     const bar = bars[i]
     const left = bars.slice(i - leftLookback, i)
     const right = bars.slice(i + 1, i + 1 + rightLookback)
 
-    // 스윙 고점 돌파 — 하락 추세 중이면 CHoCH_UP(반전), 아니면 BOS_UP(지속)
-    if (lastSwingHigh !== null && bar.close > lastSwingHigh.price) {
-      const type = trend === 'down' ? 'CHOCH_UP' : 'BOS_UP'
-      points.push({ type, price: lastSwingHigh.price, ts: bar.ts, originTs: lastSwingHigh.ts })
+    // 구조 체크 전 누적 최고/최저 업데이트
+    if (runningMaxHigh === null || bar.high > runningMaxHigh.price)
+      runningMaxHigh = { price: bar.high, ts: bar.ts }
+    if (runningMinLow === null || bar.low < runningMinLow.price)
+      runningMinLow = { price: bar.low, ts: bar.ts }
+
+    // 구조 돌파 — 봉당 하나만 발동 (if-else 체인)
+    if (trend === 'down' && peakInDowntrend !== null && bar.close > peakInDowntrend.price) {
+      // CHoCH_UP: 하락 추세에서 원래 꼭지를 몸통 돌파 → 추세 반전
+      points.push({ type: 'CHOCH_UP', price: peakInDowntrend.price, ts: bar.ts, originTs: peakInDowntrend.ts })
       trend = 'up'
       lastSwingHigh = null
-    }
-
-    // 스윙 저점 돌파 — 상승 추세 중이면 CHoCH_DOWN(반전), 아니면 BOS_DOWN(지속)
-    if (lastSwingLow !== null && bar.close < lastSwingLow.price) {
-      const type = trend === 'up' ? 'CHOCH_DOWN' : 'BOS_DOWN'
-      points.push({ type, price: lastSwingLow.price, ts: bar.ts, originTs: lastSwingLow.ts })
+      peakInDowntrend = null
+      runningMaxHigh = null  // 새 상승 추세 시작: 이후 최고점 누적 리셋
+      if (lastSwingLow === null) lastSwingLow = { price: bar.low, ts: bar.ts }
+      valleyInUptrend = lastSwingLow
+    } else if (trend !== 'down' && lastSwingHigh !== null && bar.close > lastSwingHigh.price) {
+      // BOS_UP: 직전 스윙 고점 돌파 → 추세 지속
+      points.push({ type: 'BOS_UP', price: lastSwingHigh.price, ts: bar.ts, originTs: lastSwingHigh.ts })
+      trend = 'up'
+      lastSwingHigh = null
+      runningMaxHigh = null  // 새 상승 추세 시작: 이후 최고점 누적 리셋
+      if (lastSwingLow === null) lastSwingLow = { price: bar.low, ts: bar.ts }
+      valleyInUptrend = lastSwingLow
+    } else if (trend === 'up' && valleyInUptrend !== null && bar.close < valleyInUptrend.price) {
+      // CHoCH_DOWN: 상승 추세에서 원래 바닥을 몸통 돌파 → 추세 반전
+      points.push({ type: 'CHOCH_DOWN', price: valleyInUptrend.price, ts: bar.ts, originTs: valleyInUptrend.ts })
       trend = 'down'
       lastSwingLow = null
+      valleyInUptrend = null
+      runningMinLow = null  // 새 하락 추세 시작: 이후 최저점 누적 리셋
+      if (lastSwingHigh === null) lastSwingHigh = { price: bar.high, ts: bar.ts }
+      peakInDowntrend = runningMaxHigh ?? lastSwingHigh
+    } else if (trend !== 'up' && lastSwingLow !== null && bar.close < lastSwingLow.price) {
+      // BOS_DOWN: 직전 스윙 저점 돌파 → 추세 지속
+      points.push({ type: 'BOS_DOWN', price: lastSwingLow.price, ts: bar.ts, originTs: lastSwingLow.ts })
+      trend = 'down'
+      lastSwingLow = null
+      runningMinLow = null  // 새 하락 추세 시작: 이후 최저점 누적 리셋
+      if (lastSwingHigh === null) lastSwingHigh = { price: bar.high, ts: bar.ts }
+      peakInDowntrend = runningMaxHigh ?? lastSwingHigh
     }
 
-    // 스윙 고점 확정 (좌측 20봉 + 우측 5봉)
+    // 스윙 고점 확정 (항상 최신으로 업데이트)
     if (left.every(b => b.high < bar.high) && right.every(b => b.high < bar.high)) {
       lastSwingHigh = { price: bar.high, ts: bar.ts }
+      if (trend === 'down' && (peakInDowntrend === null || bar.high > peakInDowntrend.price)) {
+        peakInDowntrend = { price: bar.high, ts: bar.ts }
+      }
     }
 
-    // 스윙 저점 확정 (좌측 20봉 + 우측 5봉)
+    // 스윙 저점 확정 (항상 최신으로 업데이트)
     if (left.every(b => b.low > bar.low) && right.every(b => b.low > bar.low)) {
       lastSwingLow = { price: bar.low, ts: bar.ts }
+      if (trend === 'up' && (valleyInUptrend === null || bar.low < valleyInUptrend.price)) {
+        valleyInUptrend = { price: bar.low, ts: bar.ts }
+      }
     }
   }
 

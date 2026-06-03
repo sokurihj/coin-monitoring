@@ -329,6 +329,7 @@ export function CandleChart() {
     const bosLabels: Record<string, string> = { BOS_UP: 'BOS↑', BOS_DOWN: 'BOS↓', CHOCH_UP: 'CHoCH↑', CHOCH_DOWN: 'CHoCH↓' }
     const structure = detectMarketStructure(bars).slice(-4)
     for (const pt of structure) {
+      const isDown = pt.type === 'BOS_DOWN' || pt.type === 'CHOCH_DOWN'
       zones.push({
         top: pt.price,
         bottom: pt.price,
@@ -338,6 +339,7 @@ export function CandleChart() {
         alpha: 0.25,
         label: bosLabels[pt.type] ?? pt.type,
         lineMode: true,
+        labelBelow: isDown,
       })
     }
 
