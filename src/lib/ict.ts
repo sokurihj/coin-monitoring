@@ -57,8 +57,7 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c3.low
       const bottom = c1.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
-      const mid = (top + bottom) / 2
-      const filled = bars.slice(i + 1).some(b => b.close <= mid)
+      const filled = bars.slice(i + 1).some(b => b.low <= bottom)
       fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled })
     }
 
@@ -67,8 +66,7 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
       const top = c1.low
       const bottom = c3.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
-      const mid = (top + bottom) / 2
-      const filled = bars.slice(i + 1).some(b => b.close >= mid)
+      const filled = bars.slice(i + 1).some(b => b.high >= top)
       fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled })
     }
   }
