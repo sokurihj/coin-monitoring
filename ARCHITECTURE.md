@@ -14,16 +14,22 @@ ICT 분석 (클라이언트 사이드)
                                    # generateICTSignals() — 봉 마감 시점 기준 (bars[0..idx]로 소급 방지)
                                    #   컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만 검사
                                    #   OB: confirmedTs(엔겔핑 봉 마감 시점) 이후 봉에서만 신호 발생
-                                   #   BOS: 최근 20봉 이내 구조 돌파만 유효
+                                   #   BOS/CHoCH는 신호 컨플루언스에서 제외 — 차트 라인 전용
                                    #   각 봉 평가 시 그 봉 당시 미충전/미위반/미스윕 레벨로 재계산 (차트 표시와 불일치 가능)
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
-                                   # detectMarketStructure() — 좌측 5봉 기준 즉시 스윙 확정, BOS 타임스탬프=실제 돌파 봉 ts
+                                   # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
+                                   #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점
+                                   #   CHoCH: 반대 추세 방향 — peakInDowntrend/valleyInUptrend(추세 전 최고/최저) 기준
+                                   #     runningMaxHigh/runningMinLow로 초기 봉 포함 전체 구간 최고/최저 추적
+                                   #     CHoCH 라인: 원래 꼭지/바닥(originTs) → 돌파 봉(endTs) 구간에만 표시
+                                   #   StructurePoint.originTs: 깨진 스윙 원점 봉 ts (라인 시작점)
   └── src/lib/ict-primitives.ts    # ZoneBoxesPrimitive — ISeriesPrimitive 구현
-                                   # zone 생성 시점 캔들부터 차트 오른쪽 끝까지 렌더링
-                                   # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL), false면 반투명 박스 (FVG/OB)
+                                   # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL/BOS/CHoCH), false면 반투명 박스 (FVG/OB)
+                                   # ZoneBox.endTs: lineMode 선 끝점 Unix seconds — 지정 시 해당 봉에서 종료, 미지정 시 차트 우측 끝
+                                   # ZoneBox.labelBelow: true면 선 아래 레이블 (BOS↓/CHoCH↓), 기본은 선 위
                                    # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 3개, BSL/SSL 4개)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
