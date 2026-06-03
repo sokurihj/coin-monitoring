@@ -298,8 +298,8 @@ export function CandleChart() {
       })
     }
 
-    // OB: 미위반 존 전체, 최근 3개
-    const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-3)
+    // OB: 미위반 존 전체, 최근 4개
+    const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-4)
     for (const ob of obs) {
       zones.push({
         top: ob.top,

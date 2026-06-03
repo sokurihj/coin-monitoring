@@ -41,6 +41,8 @@ export interface ICTSignal {
 
 // 갭 크기가 가격의 0.3% 이상인 FVG만 유효
 const MIN_FVG_RATIO = 0.003
+// 몸통 크기가 가격의 0.15% 이상인 OB만 유효
+const MIN_OB_RATIO = 0.0015
 
 // 세 캔들 사이 가격 불균형 구간 감지
 export function detectFVGs(bars: CandleBar[]): FVG[] {
@@ -84,6 +86,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
     const next = bars[i + 1]
     const body = Math.abs(ob.close - ob.open)
     if (body === 0) continue
+    if (body / ob.close < MIN_OB_RATIO) continue
 
     // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음
     if (ob.close < ob.open && next.close > ob.open) {

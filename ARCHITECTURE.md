@@ -21,6 +21,7 @@ ICT 분석 (클라이언트 사이드)
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    #   filled: wick/body가 갭 반대 끝까지 도달 시 소멸 (bullish=low≤bottom, bearish=high≥top)
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
+                                   #   MIN_OB_RATIO=0.0015 (몸통이 가격의 0.15% 이상인 OB만 유효)
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
@@ -33,7 +34,7 @@ ICT 분석 (클라이언트 사이드)
                                    # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL/BOS/CHoCH), false면 반투명 박스 (FVG/OB)
                                    # ZoneBox.endTs: lineMode 선 끝점 Unix seconds — 지정 시 해당 봉에서 종료, 미지정 시 차트 우측 끝
                                    # ZoneBox.labelBelow: true면 선 아래 레이블 (BOS↓/CHoCH↓), 기본은 선 위
-                                   # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 3개, BSL/SSL 4개)
+                                   # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 4개, BSL/SSL 4개)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
