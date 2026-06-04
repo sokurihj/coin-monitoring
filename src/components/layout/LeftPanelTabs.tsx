@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import { WhaleFeed } from '@/components/whale/WhaleFeed'
+import { TradingJournal } from '@/components/journal/TradingJournal'
 
 const CandleChart = dynamic(
   () => import('@/components/market/CandleChart').then(m => m.CandleChart),
@@ -17,11 +18,12 @@ const CandleChart = dynamic(
   },
 )
 
-type Tab = 'whale' | 'candle'
+type Tab = 'whale' | 'candle' | 'journal'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'whale', label: '고래 피드' },
   { key: 'candle', label: '캔들 차트' },
+  { key: 'journal', label: '매매일지' },
 ]
 
 export function LeftPanelTabs() {
@@ -58,6 +60,9 @@ export function LeftPanelTabs() {
       </div>
       <div className="flex-1 overflow-hidden flex flex-col" style={{ display: activeTab === 'candle' ? 'flex' : 'none' }}>
         <CandleChart />
+      </div>
+      <div className="flex-1 overflow-hidden flex flex-col" style={{ display: activeTab === 'journal' ? 'flex' : 'none' }}>
+        <TradingJournal />
       </div>
     </div>
   )

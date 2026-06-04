@@ -15,6 +15,7 @@ import { OrderBookImbalanceBar } from '../market/OrderBookImbalanceBar'
 import { LiquidationFeed } from '../market/LiquidationFeed'
 import { LeftPanelTabs } from './LeftPanelTabs'
 import { WhaleFeed } from '../whale/WhaleFeed'
+import { TradingJournal } from '../journal/TradingJournal'
 
 const CandleChart = dynamic(
   () => import('../market/CandleChart').then(m => m.CandleChart),
@@ -30,7 +31,7 @@ const CandleChart = dynamic(
   },
 )
 
-type MobileTab = 'whale' | 'chart' | 'market'
+type MobileTab = 'whale' | 'chart' | 'market' | 'journal'
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -47,6 +48,7 @@ const MOBILE_TABS: { key: MobileTab; label: string }[] = [
   { key: 'whale', label: '고래 피드' },
   { key: 'chart', label: '캔들 차트' },
   { key: 'market', label: '마켓 데이터' },
+  { key: 'journal', label: '매매일지' },
 ]
 
 export function DashboardShell() {
@@ -102,6 +104,14 @@ export function DashboardShell() {
             }}
           >
             {rightPanelContent}
+          </div>
+
+          {/* 매매일지 */}
+          <div
+            className="flex flex-col"
+            style={{ flex: 1, overflow: 'hidden', display: mobileTab === 'journal' ? 'flex' : 'none' }}
+          >
+            <TradingJournal />
           </div>
 
           {/* 하단 탭 바 */}

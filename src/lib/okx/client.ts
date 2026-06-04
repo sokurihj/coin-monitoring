@@ -28,7 +28,10 @@ export async function okxAuthFetch<T>(path: string, params?: Record<string, stri
     cache: 'no-store',
     headers: buildAuthHeaders('GET', requestPath),
   })
-  if (!res.ok) throw new Error(`OKX API error: ${res.status} ${path}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`OKX API error: ${res.status} ${path} — ${body}`)
+  }
   const json = await res.json()
   if (json.code !== '0') throw new Error(`OKX error ${json.code}: ${json.msg}`)
   return json.data as T[]
