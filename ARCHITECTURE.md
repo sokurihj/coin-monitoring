@@ -8,6 +8,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
                                    # okxAuthFetch() — HMAC-SHA256 인증 래퍼
   └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
   └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
+  └── src/lib/okx/trading-api.ts  # 매매일지 전용 API 함수들 — getFills() / parseFill()
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
@@ -47,6 +48,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/orderbook               # 호가창 데이터
   └── /api/smartmoney/signals      # 상위 트레이더 롱/숏 비율 (BTC, ETH, SOL)
   └── /api/smartmoney/traders      # OKX 카피트레이딩 리더 트레이더 상위 5명
+  └── /api/trading-log             # OKX 체결 내역 조회 → TradingFill[] (API 키 필요)
 
 클라이언트 (React Query 폴링)
   └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute
@@ -57,6 +59,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── hooks/useLiquidations.ts     # 10s 폴링
   └── hooks/useOrderBook.ts        # 3s 폴링
   └── hooks/useTickers.ts          # 5s 폴링
+  └── hooks/useTradingLog.ts       # 60s 폴링
 
 상태 관리
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
@@ -64,6 +67,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── store/cvdStore.ts            # Zustand — 코인별 CVD 누적
   └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적
   └── store/frequencyStore.ts      # Zustand — 코인별 거래 빈도 spike 감지 (60s 슬라이딩 윈도우 vs 5분 평균 2배)
+  └── store/tradingLogStore.ts     # Zustand + persist — 매매일지 태그/메모 localStorage 저장(key: trading-notes)
 
 텔레그램 알림 (백그라운드, 브라우저 불필요)
   └── src/lib/telegram.ts          # sendTelegramMessage() — Bot API 호출 헬퍼
@@ -88,11 +92,12 @@ app/dashboard/page.tsx
       ├── CoinTabBar               # 코인 필터 탭 (🔥 frequencyStore spike 배지)
       ├── LeftPanelTabs (좌, flex-1)
       │   ├── [고래피드] 탭: WhaleFeed
-      │   └── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~1W)
-      │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
-      │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
-      │                            ICT 상시 활성 — FVG/OB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
-      │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
+      │   ├── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~1W)
+      │   │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
+      │   │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
+      │   │                            ICT 상시 활성 — FVG/OB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
+      │   │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
+      │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       └── RightPanel (우, w-72)
           ├── FundingRateBar
           ├── OIMoversTable
