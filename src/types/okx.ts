@@ -164,12 +164,5 @@ export interface RawLiquidation {
   details: RawLiquidationDetail[]
 }
 
-// 오더북 entry: [가격, 수량, 청산수량, 주문수]
-export interface RawOrderBook {
-  asks: string[][]
-  bids: string[][]
-  ts: string
-}
-
 // 캔들: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm]
 export type RawCandle = [string, string, string, string, string, string, string, string, string]

@@ -56,13 +56,6 @@ export interface LiquidationEvent {
   timestamp: number
 }
 
-export interface OrderBookImbalance {
-  coin: string
-  imbalance: number    // (totalBid − totalAsk) / (totalBid + totalAsk) ∈ [−1, +1]
-  totalBid: number
-  totalAsk: number
-  fetchedAt: number
-}
 
 export interface CandleBar {
   ts: number
