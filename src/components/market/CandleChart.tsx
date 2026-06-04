@@ -20,11 +20,28 @@ import {
   type ICTSignal,
 } from '@/lib/ict'
 import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
+import { useTradingLog } from '@/hooks/useTradingLog'
+import { type TradingFill } from '@/types/trading'
 
 const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
 
 const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H', '1D', '1W'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
+
+// fill이 속하는 봉의 timestamp(초) 반환 — bars는 ts 오름차순
+function findBarTs(fillTs: number, bars: { ts: number }[]): number | null {
+  for (let i = bars.length - 1; i >= 0; i--) {
+    if (bars[i].ts <= fillTs) return bars[i].ts / 1000
+  }
+  return null
+}
+
+function fmtPnl(pnl: number): string {
+  const abs = Math.round(Math.abs(pnl))
+  return pnl >= 0 ? `+$${abs}` : `-$${abs}`
+}
+
+type FillMarkerData = { time: number; fill: TradingFill }
 
 function formatVol(v: number): string {
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(2) + 'M'
@@ -45,9 +62,11 @@ export function CandleChart() {
   const barRef = useRef<Timeframe>('1m')
 
   const { data: bars = [] } = useCandles(coin, bar)
+  const { data: tradingData } = useTradingLog(coin)
   const [volLabel, setVolLabel] = useState<string | null>(null)
   const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
   const [signalTooltip, setSignalTooltip] = useState<{ x: number; y: number; signal: ICTSignal } | null>(null)
+  const [fillTooltip, setFillTooltip] = useState<{ x: number; y: number; fill: TradingFill } | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,6 +87,7 @@ export function CandleChart() {
         horzLines: { color: '#1e2330' },
       },
       crosshair: { mode: 0 },
+      handleScale: { mouseWheel: false },
       localization: {
         // crosshair tooltip 시간 → KST
         timeFormatter: (ts: number) => {
@@ -170,13 +190,22 @@ export function CandleChart() {
         setOhlcLabel(cd ? { o: cd.open, h: cd.high, l: cd.low, c: cd.close } : null)
       }
 
-      // 신호 마커 툴팁
+      // 신호 마커 툴팁 (ICT 신호 우선, 없으면 fill 툴팁)
       const sigs = refs.current.signals as ICTSignal[] | undefined
       if (sigs && param.time != null && param.point) {
         const matched = sigs.find(s => s.ts / 1000 === param.time)
-        setSignalTooltip(matched ? { x: param.point.x, y: param.point.y, signal: matched } : null)
+        if (matched) {
+          setSignalTooltip({ x: param.point.x, y: param.point.y, signal: matched })
+          setFillTooltip(null)
+        } else {
+          setSignalTooltip(null)
+          const fms = refs.current.fillMarkers as FillMarkerData[] | undefined
+          const matchedFill = fms?.find(fm => fm.time === param.time)
+          setFillTooltip(matchedFill ? { x: param.point.x, y: param.point.y, fill: matchedFill.fill } : null)
+        }
       } else {
         setSignalTooltip(null)
+        setFillTooltip(null)
       }
     })
 
@@ -195,7 +224,30 @@ export function CandleChart() {
     })
     ro.observe(containerRef.current)
 
+    // 커스텀 휠 줌 — 커서 위치 기준으로 확대/축소, 한 틱에 35% 변화
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const ts = chart.timeScale()
+      const range = ts.getVisibleLogicalRange()
+      if (!range) return
+      const factor = e.deltaY > 0 ? 1.35 : 1 / 1.35
+      const logical = ts.coordinateToLogical(e.offsetX)
+      if (logical !== null) {
+        const fromRatio = (logical - range.from) / (range.to - range.from)
+        const span = (range.to - range.from) * factor
+        ts.setVisibleLogicalRange({ from: logical - fromRatio * span, to: logical + (1 - fromRatio) * span })
+      } else {
+        const mid = (range.from + range.to) / 2
+        const half = (range.to - range.from) / 2 * factor
+        ts.setVisibleLogicalRange({ from: mid - half, to: mid + half })
+      }
+    }
+
+    const el = containerRef.current
+    el.addEventListener('wheel', handleWheel, { passive: false })
+
     return () => {
+      el.removeEventListener('wheel', handleWheel)
       ro.disconnect()
       chart.remove()
       refs.current = {}
@@ -268,7 +320,7 @@ export function CandleChart() {
     }
   }, [bars, coin, bar])
 
-  // ICT 오버레이 업데이트 (bars 변경 시)
+  // ICT 오버레이 업데이트 (bars 또는 체결 내역 변경 시)
   useEffect(() => {
     const { seriesMarkers, ictPrimitive } = refs.current
     if (!seriesMarkers || !ictPrimitive) return
@@ -276,9 +328,11 @@ export function CandleChart() {
     seriesMarkers.setMarkers([])
     ictPrimitive.updateZones([])
     refs.current.signals = []
+    refs.current.fillMarkers = []
 
     if (!bars.length) {
       setSignalTooltip(null)
+      setFillTooltip(null)
       return
     }
 
@@ -348,7 +402,7 @@ export function CandleChart() {
     // 매수/매도 신호 마커 (createSeriesMarkers v5 API)
     const signals = generateICTSignals(bars)
     refs.current.signals = signals
-    const markers = signals.map(s => ({
+    const ictMarkers = signals.map(s => ({
       time: s.ts / 1000 as number,
       position: s.type === 'BUY' ? 'belowBar' as const : 'aboveBar' as const,
       color: s.type === 'BUY' ? '#00c076' : '#ff3b5c',
@@ -358,8 +412,39 @@ export function CandleChart() {
         : `SELL${s.strength === 'strong' ? '★' : ''}`,
       size: 1,
     }))
-    seriesMarkers.setMarkers(markers)
-  }, [bars])
+
+    // 체결 내역 → 포지션 마커
+    const fills = tradingData?.fills ?? []
+    const fillMarkersData: FillMarkerData[] = []
+    const fillMarkers = fills.flatMap(f => {
+      const time = findBarTs(f.ts, bars)
+      if (time == null) return []
+
+      let shape: 'arrowUp' | 'arrowDown' | 'circle'
+      let color: string
+      let position: 'belowBar' | 'aboveBar'
+      let text: string
+
+      if (f.side === 'buy' && f.posSide === 'long') {
+        shape = 'arrowUp'; color = '#00c076'; position = 'belowBar'; text = 'L'
+      } else if (f.side === 'sell' && f.posSide === 'short') {
+        shape = 'arrowDown'; color = '#ff3b5c'; position = 'aboveBar'; text = 'S'
+      } else if (f.side === 'sell' && f.posSide === 'long') {
+        shape = 'circle'; color = f.pnl >= 0 ? '#00c076' : '#ff3b5c'; position = 'aboveBar'; text = fmtPnl(f.pnl)
+      } else {
+        // side=buy, posSide=short → short 청산
+        shape = 'circle'; color = f.pnl >= 0 ? '#00c076' : '#ff3b5c'; position = 'belowBar'; text = fmtPnl(f.pnl)
+      }
+
+      fillMarkersData.push({ time, fill: f })
+      return [{ time, shape, color, position, text, size: 1 as const }]
+    })
+    refs.current.fillMarkers = fillMarkersData
+
+    // ICT 신호 + 포지션 마커 병합 (time 오름차순 필수)
+    const allMarkers = [...ictMarkers, ...fillMarkers].sort((a, b) => (a.time as number) - (b.time as number))
+    seriesMarkers.setMarkers(allMarkers)
+  }, [bars, tradingData])
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -437,6 +522,38 @@ export function CandleChart() {
             ))}
           </div>
         )}
+        {fillTooltip && (() => {
+          const f = fillTooltip.fill
+          const isEntry = (f.side === 'buy' && f.posSide === 'long') || (f.side === 'sell' && f.posSide === 'short')
+          const label = isEntry
+            ? `${f.posSide === 'long' ? 'LONG' : 'SHORT'} 진입`
+            : `${f.posSide === 'long' ? 'LONG' : 'SHORT'} 청산`
+          const color = isEntry
+            ? (f.posSide === 'long' ? '#00c076' : '#ff3b5c')
+            : (f.pnl >= 0 ? '#00c076' : '#ff3b5c')
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: Math.min(fillTooltip.x + 12, (containerRef.current?.clientWidth ?? 400) - 130),
+                top: Math.max(fillTooltip.y - 60, 4),
+                background: 'rgba(10,12,15,0.95)',
+                border: `1px solid ${color}`,
+                borderRadius: 4,
+                padding: '4px 8px',
+                pointerEvents: 'none',
+                zIndex: 10,
+                minWidth: 100,
+              }}
+            >
+              <div className="text-xs font-mono font-bold mb-0.5" style={{ color }}>{label}</div>
+              <div className="text-xs font-mono" style={{ color: '#94a3b8' }}>@{f.price.toLocaleString()}</div>
+              {!isEntry && (
+                <div className="text-xs font-mono font-bold" style={{ color }}>{fmtPnl(f.pnl)}</div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* 범례 */}
@@ -457,6 +574,14 @@ export function CandleChart() {
         <LegendLine color="#22d3ee" label="SSL" />
         <LegendDot color="#00c076" label="BUY" />
         <LegendDot color="#ff3b5c" label="SELL" />
+        {tradingData?.available && (
+          <>
+            <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+            <LegendDot color="#00c076" label="L진입" />
+            <LegendDot color="#ff3b5c" label="S진입" />
+            <LegendDot color="#94a3b8" label="청산" />
+          </>
+        )}
       </div>
     </div>
   )
