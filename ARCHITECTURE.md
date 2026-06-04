@@ -44,10 +44,9 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/tickers                 # 티커 목록
   └── /api/candles                 # 캔들 데이터 → Bar[]
   └── /api/cvd                     # CVD(누적 거래량 델타) 데이터
-  └── /api/liquidations            # 청산 이벤트 목록
-  └── /api/orderbook               # 호가창 데이터
+  └── /api/liquidations            # 청산 이벤트 목록 (BTC/ETH/SOL uly 각각 조회, 코인별 최신 20건)
   └── /api/smartmoney/signals      # 상위 트레이더 롱/숏 비율 (BTC, ETH, SOL)
-  └── /api/smartmoney/traders      # OKX 카피트레이딩 리더 트레이더 상위 5명
+  └── /api/smartmoney/traders      # OKX 리더 트레이더 상위 5명 + 현재 포지션 병렬 조회
   └── /api/trading-log             # OKX 체결 내역 조회 → TradingFill[] (API 키 필요)
 
 클라이언트 (React Query 폴링)
@@ -57,7 +56,6 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── hooks/useCandles.ts          # 15s 폴링
   └── hooks/useCvd.ts              # 5s 폴링
   └── hooks/useLiquidations.ts     # 10s 폴링
-  └── hooks/useOrderBook.ts        # 3s 폴링
   └── hooks/useTickers.ts          # 5s 폴링
   └── hooks/useTradingLog.ts       # 60s 폴링
 
@@ -65,7 +63,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
   └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
   └── store/cvdStore.ts            # Zustand — 코인별 CVD 누적
-  └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적
+  └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적 (최대 500건, id 중복 제거)
   └── store/frequencyStore.ts      # Zustand — 코인별 거래 빈도 spike 감지 (60s 슬라이딩 윈도우 vs 5분 평균 2배)
   └── store/tradingLogStore.ts     # Zustand + persist — 매매일지 태그/메모 localStorage 저장(key: trading-notes)
 
@@ -92,6 +90,7 @@ app/dashboard/page.tsx
       ├── CoinTabBar               # 코인 필터 탭 (🔥 frequencyStore spike 배지)
       ├── LeftPanelTabs (좌, flex-1)
       │   ├── [고래피드] 탭: WhaleFeed
+      │   │                  └── WhaleVolumeProfile — 가격대별 고래 buy/sell 볼륨 프로파일 (20버킷, 데이터 있는 버킷만 표시)
       │   ├── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~1W)
       │   │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │   │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
@@ -99,11 +98,10 @@ app/dashboard/page.tsx
       │   │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       └── RightPanel (우, w-72)
-          ├── FundingRateBar
-          ├── OIMoversTable
-          ├── SmartMoneyPanel      # TOP TRADER L/S + LEAD TRADERS
-          ├── OrderBookImbalanceBar
-          ├── LiquidationFeed
+          ├── [shrink-0 스크롤 영역]
+          │   ├── OIMoversTable
+          │   └── SmartMoneyPanel  # TOP TRADER L/S + LEAD TRADERS (클릭 시 포지션 아코디언 — 진입가·추정청산가·레버리지)
+          ├── LiquidationFeed      # flex-1 — 코인 탭(ALL/BTC/ETH/SOL) + 금액 필터(ALL/10K+/50K+/100K+) + 청산가 표시
           └── CvdChart
 ```
 
@@ -121,4 +119,5 @@ app/dashboard/page.tsx
 - `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` 환경변수 없으면 패널 비활성
 - 인증: HMAC-SHA256 서명 (`okxAuthFetch` in `client.ts`)
 - signals: `/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader` (1H, BTC/ETH/SOL)
-- traders: `/api/v5/copytrading/public-lead-traders` → `data[0].ranks[]` 구조
+- traders: `/api/v5/orbit/public/leaderboard` (상위 5명) + `/api/v5/orbit/public/position-current` (각 트레이더 현재 포지션 병렬 조회)
+- 추정 청산가: USDT 마진 격리 기준 `avgPx × (1 ± 1/lever − 0.4%)` — OKX 공개 API 미제공으로 로컬 계산

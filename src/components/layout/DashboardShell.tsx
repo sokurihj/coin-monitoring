@@ -7,11 +7,9 @@ import { useLiquidations } from '@/hooks/useLiquidations'
 import { TopBar } from './TopBar'
 import { CoinTabBar } from './CoinTabBar'
 import { MarketOverviewStrip } from '../market/MarketOverviewStrip'
-import { FundingRateBar } from '../market/FundingRateBar'
 import { OIMoversTable } from '../oi/OIMoversTable'
 import { SmartMoneyPanel } from '../smartmoney/SmartMoneyPanel'
 import { CvdChart } from '../market/CvdChart'
-import { OrderBookImbalanceBar } from '../market/OrderBookImbalanceBar'
 import { LiquidationFeed } from '../market/LiquidationFeed'
 import { LeftPanelTabs } from './LeftPanelTabs'
 import { WhaleFeed } from '../whale/WhaleFeed'
@@ -60,14 +58,13 @@ export function DashboardShell() {
 
   const rightPanelContent = (
     <>
-      <FundingRateBar />
       <OIMoversTable />
       <SmartMoneyPanel />
-      <OrderBookImbalanceBar />
       <LiquidationFeed />
       <CvdChart />
     </>
   )
+  // 모바일에서도 우측 패널 컨텐츠 동일 사용
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh', background: 'var(--bg-base)' }}>
@@ -139,10 +136,15 @@ export function DashboardShell() {
         <div className="flex flex-1 overflow-hidden">
           <LeftPanelTabs />
           <div
-            className="w-72 flex flex-col overflow-y-auto shrink-0"
+            className="w-72 flex flex-col overflow-hidden shrink-0"
             style={{ background: 'var(--bg-panel)' }}
           >
-            {rightPanelContent}
+            <div className="shrink-0 overflow-y-auto">
+              <OIMoversTable />
+              <SmartMoneyPanel />
+            </div>
+            <LiquidationFeed />
+            <CvdChart />
           </div>
         </div>
       )}

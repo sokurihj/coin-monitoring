@@ -1,6 +1,7 @@
 'use client'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { SmartMoneySignal, SmartMoneyTrader } from '@/types/okx'
+import { SmartMoneySignal, SmartMoneyTrader, TraderPosition } from '@/types/okx'
 
 function SignalRow({ signal }: { signal: SmartMoneySignal }) {
   const longPct = Math.round(signal.longRatio * 100)
@@ -34,28 +35,80 @@ function SignalRow({ signal }: { signal: SmartMoneySignal }) {
   )
 }
 
+function formatPx(px: number, coin: string): string {
+  if (coin === 'BTC') return px.toLocaleString(undefined, { maximumFractionDigits: 0 })
+  if (px >= 1000) return px.toLocaleString(undefined, { maximumFractionDigits: 1 })
+  return px.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
+function formatNotional(usd: number): string {
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`
+  return `$${(usd / 1_000).toFixed(0)}K`
+}
+
+function PositionRow({ pos }: { pos: TraderPosition }) {
+  const isLong = pos.direction === 'long'
+  return (
+    <div
+      className="flex items-center justify-between px-2 py-1 text-xs font-mono"
+      style={{ borderTop: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span
+          className="text-xs font-bold"
+          style={{ color: isLong ? 'var(--color-buy)' : 'var(--color-sell)' }}
+        >
+          {isLong ? 'L' : 'S'}
+        </span>
+        <span style={{ color: 'var(--text-primary)' }}>{pos.coin}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>{pos.lever}x</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>{formatNotional(pos.notionalUsd)}</span>
+      </div>
+      <div className="flex flex-col items-end gap-0.5">
+        <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>
+          진입 {formatPx(pos.avgPx, pos.coin)}
+        </span>
+        <span style={{ color: isLong ? 'var(--color-sell)' : 'var(--color-buy)', fontSize: 9 }}>
+          청산 ~{formatPx(pos.liqPxEst, pos.coin)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function TraderRow({ trader }: { trader: SmartMoneyTrader }) {
+  const [expanded, setExpanded] = useState(false)
   const profitStr =
     trader.profit >= 0
       ? `+$${(trader.profit / 1000).toFixed(1)}K`
       : `-$${(Math.abs(trader.profit) / 1000).toFixed(1)}K`
+  const hasPositions = trader.positions.length > 0
 
   return (
-    <div
-      className="flex items-center justify-between py-1.5 px-2 rounded text-xs"
-      style={{ background: 'var(--bg-row-hover)' }}
-    >
-      <div className="truncate max-w-[90px]" style={{ color: 'var(--text-primary)' }}>
-        {trader.nickName}
-      </div>
-      <div className="flex gap-2 shrink-0">
-        <span style={{ color: trader.profit >= 0 ? 'var(--color-buy)' : 'var(--color-sell)' }}>
-          {profitStr}
-        </span>
-        <span style={{ color: 'var(--text-muted)' }}>
-          {Math.round(trader.winRate * 100)}%
-        </span>
-      </div>
+    <div className="rounded overflow-hidden" style={{ background: 'var(--bg-row-hover)' }}>
+      <button
+        className="w-full flex items-center justify-between py-1.5 px-2 text-xs"
+        onClick={() => hasPositions && setExpanded(v => !v)}
+        style={{ cursor: hasPositions ? 'pointer' : 'default' }}
+      >
+        <div className="flex items-center gap-1 truncate max-w-[100px]">
+          {hasPositions && (
+            <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>{expanded ? '▾' : '▸'}</span>
+          )}
+          <span style={{ color: 'var(--text-primary)' }}>{trader.nickName}</span>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <span style={{ color: trader.profit >= 0 ? 'var(--color-buy)' : 'var(--color-sell)' }}>
+            {profitStr}
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            {Math.round(trader.winRate * 100)}%
+          </span>
+        </div>
+      </button>
+      {expanded && trader.positions.map((pos, i) => (
+        <PositionRow key={i} pos={pos} />
+      ))}
     </div>
   )
 }

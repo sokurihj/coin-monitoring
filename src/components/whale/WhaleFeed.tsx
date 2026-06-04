@@ -2,6 +2,7 @@
 import { useWhaleStream } from '@/hooks/useWhaleStream'
 import { useWhaleStore } from '@/store/whaleStore'
 import { WhaleFeedRow } from './WhaleFeedRow'
+import { WhaleVolumeProfile } from './WhaleVolumeProfile'
 
 export function WhaleFeed() {
   useWhaleStream()
@@ -13,6 +14,7 @@ export function WhaleFeed() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
+      <WhaleVolumeProfile />
       {/* 헤더 */}
       <div
         className="flex items-center gap-2 px-3 py-1.5 border-b text-xs shrink-0"

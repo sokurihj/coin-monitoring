@@ -18,22 +18,27 @@ function buildCtValMap(instruments: RawInstrument[]): Map<string, number> {
   return map
 }
 
+const ULY_LIST = MONITORED_COINS.map(c => `${c}-USDT`)
+
 export async function GET() {
   try {
-    const [rawLiqs, instData] = await Promise.all([
-      getLiquidations(50).catch(() => []),
+    const [liqResults, instData] = await Promise.all([
+      Promise.all(ULY_LIST.map(uly => getLiquidations(uly, 20).catch(() => []))),
       getSwapInstruments().catch(() => []),
     ])
+    const rawLiqs = liqResults.flat()
 
     const ctValMap = buildCtValMap(instData)
     const events: LiquidationEvent[] = []
 
     for (const group of rawLiqs) {
-      for (const detail of group.details ?? []) {
-        if (!MONITORED_SET.has(detail.instId)) continue
+      const instId = group.instId
+      if (!instId || !MONITORED_SET.has(instId)) continue
 
-        const coin = detail.instId.replace('-USDT-SWAP', '')
-        const ctVal = ctValMap.get(detail.instId) ?? CT_VAL_FALLBACK[detail.instId] ?? 1
+      const coin = instId.replace('-USDT-SWAP', '')
+      const ctVal = ctValMap.get(instId) ?? CT_VAL_FALLBACK[instId] ?? 1
+
+      for (const detail of group.details ?? []) {
         const price = Number(detail.bkPx)
         const sizeUsd = Number(detail.sz) * ctVal * price
 
@@ -46,9 +51,9 @@ export async function GET() {
         }
 
         events.push({
-          id: `${detail.instId}-${detail.ts}`,
+          id: `${instId}-${detail.ts}-${detail.bkPx}-${detail.sz}`,
           coin,
-          instId: detail.instId,
+          instId,
           posSide,
           sizeUsd,
           price,

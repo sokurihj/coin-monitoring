@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { LiquidationEvent } from '@/types/whale'
 
-const MAX_SIZE = 50
+const MAX_SIZE = 500
 
 interface LiquidationStore {
   events: LiquidationEvent[]
@@ -21,13 +21,12 @@ export const useLiquidationStore = create<LiquidationStore>((set, get) => ({
     const nextSeenIds = new Set(seenIds)
     for (const e of newItems) nextSeenIds.add(e.id)
 
+    const seen = new Set<string>()
     const merged = [...newItems, ...events]
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true })
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, MAX_SIZE)
 
-    // seenIds는 현재 보관 중인 항목 기준으로 재구성 (메모리 누수 방지)
-    const trimmedIds = new Set(merged.map(e => e.id))
-
-    set({ events: merged, seenIds: trimmedIds })
+    set({ events: merged, seenIds: seen })
   },
 }))

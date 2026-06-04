@@ -19,9 +19,10 @@ export const getFundingRate = (instId: string) =>
 export const getSwapInstruments = () =>
   okxFetch<RawInstrument>('/api/v5/public/instruments', { instType: 'SWAP' })
 
-export const getLiquidations = (limit = 20) =>
+export const getLiquidations = (uly: string, limit = 20) =>
   okxFetch<RawLiquidation>('/api/v5/public/liquidation-orders', {
     instType: 'SWAP',
+    uly,
     state: 'filled',
     limit: String(limit),
   })
