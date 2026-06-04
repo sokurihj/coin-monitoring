@@ -95,7 +95,8 @@ app/dashboard/page.tsx
       │   │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │   │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
       │   │                            ICT 상시 활성 — FVG/OB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
-      │   │                            fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
+      │   │                            API 키 설정 시 useTradingLog로 체결 내역 조회 → 진입(L↑/S↓)/청산(●) 포지션 마커 + hover 툴팁
+      │   │                            커스텀 휠 줌 (커서 위치 기준 확대/축소), fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       └── RightPanel (우, w-72)
           ├── [shrink-0 스크롤 영역]
