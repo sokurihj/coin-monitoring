@@ -22,8 +22,12 @@ ICT 분석 (클라이언트 사이드)
                                    # detectFVGs() — MIN_FVG_RATIO=0.003 (갭이 가격의 0.3% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
                                    #   filled: wick/body가 갭 반대 끝까지 도달 시 소멸 (bullish=low≤bottom, bearish=high≥top)
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
+                                   #   Bullish: next.open ≤ ob.open (OB 몸통 안 또는 아래 시작) && next.close > ob.open
+                                   #   Bearish: next.open ≥ ob.open (OB 몸통 안 또는 위 시작) && next.close < ob.open
+                                   #   → 갭 상승/하강 후 살짝 이동하는 캔들을 엔겔핑으로 오인 방지
                                    #   MIN_OB_RATIO=0.0015 (몸통이 가격의 0.15% 이상인 OB만 유효)
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
+                                   #   violated 체크: 마감된 봉만 사용 (bars.slice(i+1, -1)) — 진행 중인 봉 제외로 깜빡임 방지
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
                                    #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점
