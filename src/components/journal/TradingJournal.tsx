@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useTradingLog } from '@/hooks/useTradingLog'
+import { useAccountBalance } from '@/hooks/useAccountBalance'
 import { useTradingLogStore } from '@/store/tradingLogStore'
 import { useWhaleStore } from '@/store/whaleStore'
 import { TradingFill, TRADE_TAGS, TradeTag } from '@/types/trading'
@@ -30,7 +31,7 @@ function PnlBadge({ pnl }: { pnl: number }) {
 }
 
 function fillKey(fill: TradingFill) {
-  return `${fill.ordId}-${fill.ts}`
+  return fill.id || `${fill.ordId}-${fill.ts}`
 }
 
 function FillRow({ fill }: { fill: TradingFill }) {
@@ -140,6 +141,39 @@ function FillRow({ fill }: { fill: TradingFill }) {
   )
 }
 
+function BalancePanel() {
+  const { data } = useAccountBalance()
+  if (!data?.available || !data.balance) return null
+
+  const { totalEq, availEq, usedMargin, unrealizedPnl } = data.balance
+  const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
+  return (
+    <div
+      className="grid grid-cols-4 gap-0 border-b shrink-0 text-[10px]"
+      style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
+    >
+      {[
+        { label: '총 자산', sub: '', value: `$${fmt(totalEq)}` },
+        { label: '가용 증거금', sub: '지금 당장 쓸 수 있는 돈', value: `$${fmt(availEq)}` },
+        { label: '사용 증거금', sub: '이미 묶인 돈', value: `$${fmt(usedMargin)}`, highlight: usedMargin > 0 },
+        { label: '미실현 손익', sub: '', value: `${unrealizedPnl >= 0 ? '+' : ''}$${fmt(unrealizedPnl)}`, highlight: unrealizedPnl < 0 },
+      ].map(({ label, sub, value, highlight }) => (
+        <div key={label} className="flex flex-col items-center py-2 gap-0.5">
+          <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+          {sub && <span className="text-[9px]" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{sub}</span>}
+          <span
+            className="font-mono font-semibold text-[11px]"
+            style={{ color: highlight ? 'var(--sell)' : 'var(--text-primary)' }}
+          >
+            {value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SummaryBar({ fills }: { fills: TradingFill[] }) {
   const withPnl = fills.filter(f => f.pnl !== 0)
   const totalPnl = withPnl.reduce((sum, f) => sum + f.pnl, 0)
@@ -220,6 +254,7 @@ export function TradingJournal() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
+      <BalancePanel />
       <SummaryBar fills={fills} />
 
       <div
@@ -236,7 +271,7 @@ export function TradingJournal() {
 
       <div className="overflow-y-auto flex-1">
         {fills.map((fill, i) => (
-          <FillRow key={`${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
+          <FillRow key={fill.id || `${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
         ))}
       </div>
     </div>
