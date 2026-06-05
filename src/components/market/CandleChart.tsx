@@ -14,7 +14,7 @@ import { calcRsi, calcMacd } from '@/lib/indicators'
 import { MONITORED_COINS } from '@/lib/constants'
 import {
   detectFVGs,
-  detectIFVGs,
+
   detectOrderBlocks,
   detectBreakerBlocks,
   detectLiquidityLevels,
@@ -434,20 +434,6 @@ export function CandleChart() {
       })
     }
 
-    // IFVG: 충전된 FVG → 극성 반전, 최근 4개
-    const ifvgs = detectIFVGs(bars).slice(-4)
-    for (const ifvg of ifvgs) {
-      if (!inRange(ifvg.top, ifvg.bottom)) continue
-      zones.push({
-        top: ifvg.top,
-        bottom: ifvg.bottom,
-        startTs: ifvg.ts / 1000,
-        color: ifvg.type === 'bullish' ? '#00c076' : '#ff3b5c',
-        alpha: 0.1,
-        label: ifvg.type === 'bullish' ? 'IFVG↑' : 'IFVG↓',
-      })
-    }
-
     // OB: 미위반 존 전체, 최근 4개
     const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-4)
     for (const ob of obs) {
@@ -794,8 +780,7 @@ export function CandleChart() {
         <LegendDot color="#ef4444" label="Signal" />
         <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
         <LegendLine color="#ffffff" label="FVG" />
-        <LegendLine color="#00c076" label="IFVG↑" />
-        <LegendLine color="#ff3b5c" label="IFVG↓" />
+
         <LegendLine color="#f97316" label="OB↑" />
         <LegendLine color="#a855f7" label="OB↓" />
         <LegendLine color="#fbbf24" label="BSL" />

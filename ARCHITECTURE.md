@@ -38,11 +38,6 @@ ICT 분석 (클라이언트 사이드)
                                    #   breakerTs: violation 유발 첫 봉 ts, mitigated: 전환 후 재돌파 시 소멸 (숨김)
                                    #   신호 컨플루언스: BB↑/BB↓ (FVG/OB와 동일 레벨, hasBuyZone/hasSellZone 조건 포함)
                                    #   차트 색상: Bullish Breaker=#00c076(초록), Bearish Breaker=#ff3b5c(빨강), alpha=0.1
-                                   # detectIFVGs() — filled FVG → 극성 반전된 Inverse FVG
-                                   #   Bullish FVG 충전 → Bearish IFVG (저항), Bearish FVG 충전 → Bullish IFVG (지지)
-                                   #   fill 감지: close 기준 (close≤bottom / close≥top) — wick 터치만으로는 IFVG 생성 안 됨
-                                   #   mitigated: fill 이후 봉의 close가 IFVG 범위 반대편 돌파 시 소멸 (BB와 동일 패턴)
-                                   #   차트 색상: Bullish IFVG=#00c076(초록), Bearish IFVG=#ff3b5c(빨강), alpha=0.1
                                    # detectLiquidityLevels() — leftLookback=15, rightLookback=5 (좌 15봉 높이 기준, 우 5봉 확정 대기)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
                                    #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점
@@ -54,7 +49,7 @@ ICT 분석 (클라이언트 사이드)
                                    # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL/BOS/CHoCH), false면 반투명 박스 (FVG/OB)
                                    # ZoneBox.endTs: lineMode 선 끝점 Unix seconds — 지정 시 해당 봉에서 종료, 미지정 시 차트 우측 끝
                                    # ZoneBox.labelBelow: true면 선 아래 레이블 (BOS↓/CHoCH↓), 기본은 선 위
-                                   # 존 표시: FVG 4개, IFVG 4개, OB 4개, BB 4개, BSL 2개, SSL 2개
+                                   # 존 표시: FVG 4개, OB 4개, BB 4개, BSL 2개, SSL 2개
                                    # 근접 필터는 CandleChart에서 적용 — 타임프레임별 ±% 범위 내 존만 렌더링 (primitive 자체는 필터 없음)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
@@ -121,7 +116,7 @@ app/dashboard/page.tsx
       │   ├── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~1W)
       │   │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │   │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
-      │   │                            ICT 상시 활성 — FVG(흰)/IFVG(초록·빨강)/OB/BB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
+      │   │                            ICT 상시 활성 — FVG(흰)/OB/BB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
       │   │                            근접 필터 버튼 (헤더) — 타임프레임별 ±% 범위(1m/5m=2%, 15m/1H=3%, 4H/1D/1W=5%) ON/OFF 토글
       │   │                            API 키 설정 시 useTradingLog로 체결 내역 조회 → 진입(L↑/S↓)/청산(●) 포지션 마커 + hover 툴팁
       │   │                            API 키 설정 시 usePositions로 현재 포지션 조회 → TP(초록)/SL(빨강) 점선 수평선 표시 (createPriceLine)
