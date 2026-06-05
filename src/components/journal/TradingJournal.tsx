@@ -4,7 +4,7 @@ import { useTradingLog } from '@/hooks/useTradingLog'
 import { useAccountBalance } from '@/hooks/useAccountBalance'
 import { useTradingLogStore } from '@/store/tradingLogStore'
 import { useWhaleStore } from '@/store/whaleStore'
-import { TradingFill, TRADE_TAGS, TradeTag } from '@/types/trading'
+import { TradingFill, TRADE_TAGS, TP_TAGS, SL_TAGS, TradeTag, TpTag, SlTag } from '@/types/trading'
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleString('ko-KR', {
@@ -34,14 +34,33 @@ function fillKey(fill: TradingFill) {
   return fill.id || `${fill.ordId}-${fill.ts}`
 }
 
+function TagButton({ label, active, color, onClick }: { label: string; active: boolean; color: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-2 py-1 rounded text-[11px] font-mono transition-colors"
+      style={{
+        background: active ? color : 'var(--bg-base)',
+        color: active ? '#000' : 'var(--text-secondary)',
+        border: `1px solid ${active ? color : 'var(--border)'}`,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 function FillRow({ fill }: { fill: TradingFill }) {
   const [expanded, setExpanded] = useState(false)
-  const { notes, tags, setNote, toggleTag } = useTradingLogStore()
+  const { notes, tags, tpTags, slTags, setNote, toggleTag, toggleTpTag, toggleSlTag } = useTradingLogStore()
   const key = fillKey(fill)
   const note = notes[key] ?? ''
   const selectedTags = tags[key] ?? []
+  const selectedTpTags = tpTags[key] ?? []
+  const selectedSlTags = slTags[key] ?? []
 
   const directionColor = fill.posSide === 'long' ? 'var(--buy)' : 'var(--sell)'
+  const hasAnyTag = selectedTags.length + selectedTpTags.length + selectedSlTags.length > 0
 
   return (
     <div>
@@ -65,22 +84,35 @@ function FillRow({ fill }: { fill: TradingFill }) {
         <span className="w-16 shrink-0">
           <PnlBadge pnl={fill.pnl} />
         </span>
-        {/* 선택된 태그 미리보기 */}
-        <div className="flex gap-1 flex-1 flex-wrap">
-          {selectedTags.length > 0
-            ? selectedTags.map(tag => (
-                <span
-                  key={tag}
-                  className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-                  style={{ background: 'var(--bg-panel)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                >
-                  {tag}
-                </span>
-              ))
-            : <span style={{ color: 'var(--text-muted)' }}>—</span>
-          }
+        {/* 태그 전체 + 메모 인라인 */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex gap-1 flex-wrap shrink-0">
+            {!hasAnyTag && <span style={{ color: 'var(--text-muted)' }}>—</span>}
+            {selectedTags.map(tag => (
+              <span key={`e-${tag}`} className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
+                {tag}
+              </span>
+            ))}
+            {selectedTpTags.map(tag => (
+              <span key={`tp-${tag}`} className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                style={{ color: '#16a34a', border: '1px solid #16a34a', background: 'var(--bg-panel)', opacity: 0.9 }}>
+                {tag}
+              </span>
+            ))}
+            {selectedSlTags.map(tag => (
+              <span key={`sl-${tag}`} className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                style={{ color: 'var(--sell)', border: '1px solid var(--sell)', background: 'var(--bg-panel)', opacity: 0.9 }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+          {note && (
+            <span className="text-[10px] font-mono truncate flex-1" style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {note}
+            </span>
+          )}
         </div>
-        {note && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>📝</span>}
         <span
           className="text-[10px] shrink-0 transition-transform"
           style={{ color: 'var(--text-muted)', transform: expanded ? 'rotate(90deg)' : 'none' }}
@@ -91,50 +123,67 @@ function FillRow({ fill }: { fill: TradingFill }) {
 
       {expanded && (
         <div
-          className="px-3 py-3 border-b"
+          className="px-3 pt-3 pb-3 border-b flex flex-col gap-3"
           style={{ background: 'var(--bg-panel)', borderColor: 'var(--border)' }}
           onClick={e => e.stopPropagation()}
         >
-          {/* 태그 선택 */}
-          <p className="text-[10px] mb-2 font-mono uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-            진입 근거
-          </p>
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {TRADE_TAGS.map(tag => {
-              const active = selectedTags.includes(tag)
-              return (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(key, tag as TradeTag)}
-                  className="px-2 py-1 rounded text-[11px] font-mono transition-colors"
-                  style={{
-                    background: active ? 'var(--buy)' : 'var(--bg-base)',
-                    color: active ? '#000' : 'var(--text-secondary)',
-                    border: `1px solid ${active ? 'var(--buy)' : 'var(--border)'}`,
-                  }}
-                >
-                  {tag}
-                </button>
-              )
-            })}
+          {/* 진입 근거 */}
+          <div>
+            <p className="text-[10px] mb-1.5 font-mono uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              진입 근거
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {TRADE_TAGS.map(tag => (
+                <TagButton key={tag} label={tag} active={selectedTags.includes(tag)} color="var(--buy)"
+                  onClick={() => toggleTag(key, tag as TradeTag)} />
+              ))}
+            </div>
+          </div>
+
+          {/* 익절 근거 */}
+          <div>
+            <p className="text-[10px] mb-1.5 font-mono uppercase tracking-wide" style={{ color: '#16a34a', opacity: 0.8 }}>
+              익절 근거
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {TP_TAGS.map(tag => (
+                <TagButton key={tag} label={tag} active={selectedTpTags.includes(tag)} color="#16a34a"
+                  onClick={() => toggleTpTag(key, tag as TpTag)} />
+              ))}
+            </div>
+          </div>
+
+          {/* 손절 근거 */}
+          <div>
+            <p className="text-[10px] mb-1.5 font-mono uppercase tracking-wide" style={{ color: 'var(--sell)', opacity: 0.8 }}>
+              손절 근거
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {SL_TAGS.map(tag => (
+                <TagButton key={tag} label={tag} active={selectedSlTags.includes(tag)} color="var(--sell)"
+                  onClick={() => toggleSlTag(key, tag as SlTag)} />
+              ))}
+            </div>
           </div>
 
           {/* 메모 */}
-          <p className="text-[10px] mb-1 font-mono uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-            메모
-          </p>
-          <textarea
-            className="w-full text-xs font-mono resize-none rounded px-2 py-1.5 focus:outline-none"
-            style={{
-              background: 'var(--bg-base)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              minHeight: '56px',
-            }}
-            placeholder="거래 근거, 반성 등..."
-            value={note}
-            onChange={e => setNote(key, e.target.value)}
-          />
+          <div>
+            <p className="text-[10px] mb-1 font-mono uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              메모
+            </p>
+            <textarea
+              className="w-full text-xs font-mono resize-none rounded px-2 py-1.5 focus:outline-none"
+              style={{
+                background: 'var(--bg-base)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                minHeight: '56px',
+              }}
+              placeholder="거래 근거, 반성 등..."
+              value={note}
+              onChange={e => setNote(key, e.target.value)}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -266,7 +315,7 @@ export function TradingJournal() {
         <span className="w-10 shrink-0">방향</span>
         <span className="w-20 shrink-0">가격</span>
         <span className="w-16 shrink-0">P&L</span>
-        <span className="flex-1">진입 근거</span>
+        <span className="flex-1">근거</span>
       </div>
 
       <div className="overflow-y-auto flex-1">

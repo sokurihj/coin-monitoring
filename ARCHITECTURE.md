@@ -72,7 +72,8 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── store/cvdStore.ts            # Zustand — 코인별 CVD 누적
   └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적 (최대 500건, id 중복 제거)
   └── store/frequencyStore.ts      # Zustand — 코인별 거래 빈도 spike 감지 (60s 슬라이딩 윈도우 vs 5분 평균 2배)
-  └── store/tradingLogStore.ts     # Zustand + persist — 매매일지 태그/메모 localStorage 저장(key: trading-notes)
+  └── store/tradingLogStore.ts     # Zustand + persist — 매매일지 태그(진입·익절·손절)/메모 localStorage 저장(key: trading-notes)
+                                   # tags(진입근거)/tpTags(익절근거)/slTags(손절근거) 세 카테고리 독립 관리
 
 텔레그램 알림 (백그라운드, 브라우저 불필요)
   └── src/lib/telegram.ts          # sendTelegramMessage() — Bot API 호출 헬퍼

@@ -45,4 +45,27 @@ export const TRADE_TAGS = [
   '기타',
 ] as const
 
+export const TP_TAGS = [
+  'OB 도달',
+  'FVG 충전',
+  '유동성 스윕',
+  '목표가 도달',
+  '저항/지지 도달',
+  '고래 반전 신호',
+  '부분 익절',
+  '기타',
+] as const
+
+export const SL_TAGS = [
+  'OB 이탈',
+  'FVG 미반응',
+  '구조 붕괴',
+  '손절가 도달',
+  '고래 반전 신호',
+  '부분 손절',
+  '기타',
+] as const
+
 export type TradeTag = typeof TRADE_TAGS[number]
+export type TpTag = typeof TP_TAGS[number]
+export type SlTag = typeof SL_TAGS[number]
