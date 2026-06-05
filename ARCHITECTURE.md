@@ -14,7 +14,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
                                    # generateICTSignals() — 봉 마감 시점 기준 (bars[0..idx]로 소급 방지)
-                                   #   컨플루언스 3개=medium / 4개+=strong, FVG/OB 접촉 필수, 마감된 봉만 검사
+                                   #   컨플루언스 3개=medium / 4개+=strong, FVG/OB/BB 접촉 필수, 마감된 봉만 검사
                                    #   캔들 방향 조건 없음 — 양봉/음봉 무관하게 컨플루언스 충족 시 신호 발생
                                    #   FVG: 이전 봉이 이미 접촉 중이면 제외 (존 최초 진입 봉에만 FVG 카운트)
                                    #   OB: confirmedTs(엔겔핑 봉 마감 시점) 이후 봉에서만 신호 발생
@@ -26,9 +26,14 @@ ICT 분석 (클라이언트 사이드)
                                    #   Bullish: next.open ≤ ob.open (OB 몸통 안 또는 아래 시작) && next.close > ob.open
                                    #   Bearish: next.open ≥ ob.open (OB 몸통 안 또는 위 시작) && next.close < ob.open
                                    #   → 갭 상승/하강 후 살짝 이동하는 캔들을 엔겔핑으로 오인 방지
-                                   #   MIN_OB_RATIO=0.0015 (몸통이 가격의 0.15% 이상인 OB만 유효)
+                                   #   MIN_OB_RATIO=0.003 (엔겔핑 캔들 몸통 - OB 캔들 몸통 차이가 가격의 0.3% 이상인 OB만 유효)
                                    #   confirmedTs 필드: OB 확정 시점(엔겔핑 봉 ts), 진행 중인 봉은 next에서 제외
                                    #   violated 체크: 마감된 봉만 사용 (bars.slice(i+1, -1)) — 진행 중인 봉 제외로 깜빡임 방지
+                                   # detectBreakerBlocks() — violated OB에서 파생, 극성 반전된 존
+                                   #   Bullish OB violated → Bearish Breaker BB↓ (저항), Bearish OB violated → Bullish Breaker BB↑ (지지)
+                                   #   breakerTs: violation 유발 첫 봉 ts, mitigated: 전환 후 재돌파 시 소멸 (숨김)
+                                   #   신호 컨플루언스: BB↑/BB↓ (FVG/OB와 동일 레벨, hasBuyZone/hasSellZone 조건 포함)
+                                   #   차트 색상: Bullish Breaker=#06b6d4(시안), Bearish Breaker=#f59e0b(앰버), alpha=0.1
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
                                    #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점

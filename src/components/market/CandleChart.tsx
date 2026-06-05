@@ -14,6 +14,7 @@ import { MONITORED_COINS } from '@/lib/constants'
 import {
   detectFVGs,
   detectOrderBlocks,
+  detectBreakerBlocks,
   detectLiquidityLevels,
   detectMarketStructure,
   generateICTSignals,
@@ -362,6 +363,19 @@ export function CandleChart() {
         color: ob.type === 'bullish' ? '#f97316' : '#a855f7',
         alpha: 0.15,
         label: ob.type === 'bullish' ? 'OB↑' : 'OB↓',
+      })
+    }
+
+    // Breaker Block: 미소멸 존, 최근 4개
+    const breakers = detectBreakerBlocks(bars).slice(-4)
+    for (const bb of breakers) {
+      zones.push({
+        top: bb.top,
+        bottom: bb.bottom,
+        startTs: bb.ts / 1000,
+        color: bb.type === 'bullish' ? '#06b6d4' : '#f59e0b',
+        alpha: 0.1,
+        label: bb.type === 'bullish' ? 'BB↑' : 'BB↓',
       })
     }
 

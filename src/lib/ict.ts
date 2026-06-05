@@ -17,6 +17,16 @@ export interface OrderBlock {
   violated: boolean
 }
 
+export interface BreakerBlock {
+  type: 'bullish' | 'bearish'  // 전환된 방향 — 원래 OB와 반대
+  top: number
+  bottom: number
+  ts: number           // 원래 OB 캔들 ts
+  confirmedTs: number  // OB 확정 ts (엔겔핑 봉)
+  breakerTs: number    // violation 유발 첫 번째 봉 ts
+  mitigated: boolean
+}
+
 export interface LiquidityLevel {
   type: 'BSL' | 'SSL'
   price: number
@@ -41,8 +51,8 @@ export interface ICTSignal {
 
 // 갭 크기가 가격의 0.3% 이상인 FVG만 유효
 const MIN_FVG_RATIO = 0.003
-// 몸통 크기가 가격의 0.15% 이상인 OB만 유효
-const MIN_OB_RATIO = 0.0015
+// 엔겔핑 캔들 몸통과 OB 캔들 몸통의 차이가 가격의 0.3% 이상인 OB만 유효
+const MIN_OB_RATIO = 0.003
 
 // 세 캔들 사이 가격 불균형 구간 감지
 export function detectFVGs(bars: CandleBar[]): FVG[] {
@@ -86,7 +96,8 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
     const next = bars[i + 1]
     const body = Math.abs(ob.close - ob.open)
     if (body === 0) continue
-    if (body / ob.close < MIN_OB_RATIO) continue
+    const nextBody = Math.abs(next.close - next.open)
+    if ((nextBody - body) / ob.close < MIN_OB_RATIO) continue
 
     // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음 (next.open은 OB 몸통 안 또는 아래에서 시작)
     if (ob.close < ob.open && next.open <= ob.open && next.close > ob.open) {
@@ -106,6 +117,39 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
   }
 
   return obs
+}
+
+// violated OB에서 파생 — 극성 반전 후 미소멸 존만 반환
+export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
+  const breakers: BreakerBlock[] = []
+
+  for (const ob of detectOrderBlocks(bars)) {
+    if (!ob.violated) continue
+
+    const afterConfirm = bars.filter(b => b.ts > ob.confirmedTs)
+
+    if (ob.type === 'bullish') {
+      // Bullish OB violated → Bearish Breaker (저항으로 전환)
+      const violator = afterConfirm.find(b => b.close < ob.bottom)
+      if (!violator) continue
+      const breakerTs = violator.ts
+      const mitigated = bars.filter(b => b.ts > breakerTs).some(b => b.close > ob.top)
+      if (!mitigated) {
+        breakers.push({ type: 'bearish', top: ob.top, bottom: ob.bottom, ts: ob.ts, confirmedTs: ob.confirmedTs, breakerTs, mitigated })
+      }
+    } else {
+      // Bearish OB violated → Bullish Breaker (지지로 전환)
+      const violator = afterConfirm.find(b => b.close > ob.top)
+      if (!violator) continue
+      const breakerTs = violator.ts
+      const mitigated = bars.filter(b => b.ts > breakerTs).some(b => b.close < ob.bottom)
+      if (!mitigated) {
+        breakers.push({ type: 'bullish', top: ob.top, bottom: ob.bottom, ts: ob.ts, confirmedTs: ob.confirmedTs, breakerTs, mitigated })
+      }
+    }
+  }
+
+  return breakers
 }
 
 // 스윙 고/저점 기반 유동성 풀 감지 (lookback 캔들 기준)
@@ -272,6 +316,17 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
+    // 이 봉 이전에 확정된 미소멸 Breaker Block에 접촉
+    const breakers = detectBreakerBlocks(sub)
+    for (const bb of breakers.filter(b => b.breakerTs < bar.ts)) {
+      if (bb.type === 'bullish' && bar.low <= bb.top && bar.high >= bb.bottom) {
+        if (!buyReasons.includes('BB↑')) buyReasons.push('BB↑')
+      }
+      if (bb.type === 'bearish' && bar.high >= bb.bottom && bar.low <= bb.top) {
+        if (!sellReasons.includes('BB↓')) sellReasons.push('BB↓')
+      }
+    }
+
     // 이 봉 이전에 생성된 미스윕 레벨 스윕
     for (const level of levels.filter(l => l.ts < bar.ts)) {
       if (level.type === 'SSL' && bar.low < level.price && bar.close > level.price) {
@@ -282,19 +337,9 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 프리미엄/할인 구간 (이전 20봉 레인지 상하위 30%만 유효)
-    const ctx = bars.slice(Math.max(0, idx - 20), idx)
-    if (ctx.length >= 10) {
-      const hi = Math.max(...ctx.map(b => b.high))
-      const lo = Math.min(...ctx.map(b => b.low))
-      const range = hi - lo
-      if (bar.close <= lo + range * 0.3) buyReasons.push('할인구간')
-      else if (bar.close >= hi - range * 0.3) sellReasons.push('프리미엄')
-    }
-
     // 컨플루언스 3개 이상 + FVG/OB 접촉 필수 + 캔들 방향 확인 (중복 신호 방지)
-    const hasBuyZone = buyReasons.includes('FVG↑') || buyReasons.includes('OB↑')
-    const hasSellZone = sellReasons.includes('FVG↓') || sellReasons.includes('OB↓')
+    const hasBuyZone = buyReasons.includes('FVG↑') || buyReasons.includes('OB↑') || buyReasons.includes('BB↑')
+    const hasSellZone = sellReasons.includes('FVG↓') || sellReasons.includes('OB↓') || sellReasons.includes('BB↓')
     const alreadySignaled = signals.some(s => s.ts === bar.ts)
     if (!alreadySignaled) {
       if (buyReasons.length >= 3 && hasBuyZone) {
