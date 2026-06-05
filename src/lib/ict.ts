@@ -102,7 +102,7 @@ export function detectIFVGs(bars: CandleBar[]): FVG[] {
       const bottom = c1.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
       const afterFvg = bars.slice(i + 1)
-      const filler = afterFvg.find(b => b.low <= bottom)
+      const filler = afterFvg.find(b => b.close <= bottom)
       if (!filler) continue
       const mitigated = bars.filter(b => b.ts > filler.ts).some(b => b.close > top)
       if (!mitigated) ifvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled: true })
@@ -114,7 +114,7 @@ export function detectIFVGs(bars: CandleBar[]): FVG[] {
       const bottom = c3.high
       if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
       const afterFvg = bars.slice(i + 1)
-      const filler = afterFvg.find(b => b.high >= top)
+      const filler = afterFvg.find(b => b.close >= top)
       if (!filler) continue
       const mitigated = bars.filter(b => b.ts > filler.ts).some(b => b.close < bottom)
       if (!mitigated) ifvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled: true })
@@ -191,16 +191,16 @@ export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
 }
 
 // 스윙 고/저점 기반 유동성 풀 감지 (lookback 캔들 기준)
-export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): LiquidityLevel[] {
+export function detectLiquidityLevels(bars: CandleBar[], leftLookback = 15, rightLookback = 5): LiquidityLevel[] {
   const levels: LiquidityLevel[] = []
 
-  for (let i = lookback; i < bars.length - lookback; i++) {
+  for (let i = leftLookback; i < bars.length - rightLookback; i++) {
     const bar = bars[i]
 
     // 스윙 고점 = BSL (매수측 유동성)
     const isSwingHigh =
-      bars.slice(i - lookback, i).every(b => b.high < bar.high) &&
-      bars.slice(i + 1, i + lookback + 1).every(b => b.high < bar.high)
+      bars.slice(i - leftLookback, i).every(b => b.high < bar.high) &&
+      bars.slice(i + 1, i + rightLookback + 1).every(b => b.high < bar.high)
     if (isSwingHigh) {
       const swept = bars.slice(i + 1).some(b => b.high > bar.high)
       levels.push({ type: 'BSL', price: bar.high, ts: bar.ts, swept })
@@ -208,8 +208,8 @@ export function detectLiquidityLevels(bars: CandleBar[], lookback = 15): Liquidi
 
     // 스윙 저점 = SSL (매도측 유동성)
     const isSwingLow =
-      bars.slice(i - lookback, i).every(b => b.low > bar.low) &&
-      bars.slice(i + 1, i + lookback + 1).every(b => b.low > bar.low)
+      bars.slice(i - leftLookback, i).every(b => b.low > bar.low) &&
+      bars.slice(i + 1, i + rightLookback + 1).every(b => b.low > bar.low)
     if (isSwingLow) {
       const swept = bars.slice(i + 1).some(b => b.low < bar.low)
       levels.push({ type: 'SSL', price: bar.low, ts: bar.ts, swept })
