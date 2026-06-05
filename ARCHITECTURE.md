@@ -8,10 +8,12 @@ OKX Public API (https://www.okx.com/api/v5/...)
                                    # okxAuthFetch() — HMAC-SHA256 인증 래퍼
   └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
   └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
-  └── src/lib/okx/trading-api.ts  # 매매일지 전용 API 함수들 — getFills() / parseFill() / getAccountBalance() / getPositions()
+  └── src/lib/okx/trading-api.ts  # 매매일지 전용 API 함수들 — getFills() / parseFill() / getAccountBalance() / getPositions() / getPendingLimitOrders()
                                    # parseFill: id = tradeId || fillId (tradeId 우선, 빈 문자열 fallback)
                                    # getPositions: /api/v5/account/positions + /api/v5/trade/orders-algo-pending 병렬 조회
                                    #   알고 주문(conditional) TP/SL을 instId 기준으로 포지션에 병합 (포지션 직접 설정 우선)
+                                   # getPendingLimitOrders: /api/v5/trade/orders-pending (instType=SWAP, ordType=limit)
+                                   #   live/partially_filled 상태만 반환, posSide 포함 (Open L/S · Close L/S 구분용)
 
 ICT 분석 (클라이언트 사이드)
   └── src/lib/ict.ts               # FVG / OB / LiquidityLevel / BOS·CHoCH / ICTSignal 감지
@@ -35,7 +37,11 @@ ICT 분석 (클라이언트 사이드)
                                    #   Bullish OB violated → Bearish Breaker BB↓ (저항), Bearish OB violated → Bullish Breaker BB↑ (지지)
                                    #   breakerTs: violation 유발 첫 봉 ts, mitigated: 전환 후 재돌파 시 소멸 (숨김)
                                    #   신호 컨플루언스: BB↑/BB↓ (FVG/OB와 동일 레벨, hasBuyZone/hasSellZone 조건 포함)
-                                   #   차트 색상: Bullish Breaker=#06b6d4(시안), Bearish Breaker=#f59e0b(앰버), alpha=0.1
+                                   #   차트 색상: Bullish Breaker=#00c076(초록), Bearish Breaker=#ff3b5c(빨강), alpha=0.1
+                                   # detectIFVGs() — filled FVG → 극성 반전된 Inverse FVG
+                                   #   Bullish FVG 충전 → Bearish IFVG (저항), Bearish FVG 충전 → Bullish IFVG (지지)
+                                   #   mitigated: fill 이후 봉의 close가 IFVG 범위 반대편 돌파 시 소멸 (BB와 동일 패턴)
+                                   #   차트 색상: Bullish IFVG=#00c076(초록), Bearish IFVG=#ff3b5c(빨강), alpha=0.1
                                    # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
                                    #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점
@@ -47,7 +53,8 @@ ICT 분석 (클라이언트 사이드)
                                    # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL/BOS/CHoCH), false면 반투명 박스 (FVG/OB)
                                    # ZoneBox.endTs: lineMode 선 끝점 Unix seconds — 지정 시 해당 봉에서 종료, 미지정 시 차트 우측 끝
                                    # ZoneBox.labelBelow: true면 선 아래 레이블 (BOS↓/CHoCH↓), 기본은 선 위
-                                   # 가격 범위 필터 없음 — 미충전/미위반/미스윕 존 전체 표시 (FVG 4개, OB 4개, BSL/SSL 4개)
+                                   # 존 표시: FVG 4개, IFVG 4개, OB 4개, BB 4개, BSL/SSL 4개
+                                   # 근접 필터는 CandleChart에서 적용 — 타임프레임별 ±% 범위 내 존만 렌더링 (primitive 자체는 필터 없음)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
@@ -62,6 +69,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/trading-log             # OKX 체결 내역 조회 → TradingFill[] (API 키 필요)
   └── /api/account-balance         # OKX 계좌 잔고 조회 → AccountBalance (총자산·가용증거금·사용증거금·미실현손익, API 키 필요)
   └── /api/positions               # OKX 현재 포지션 조회 → Position[] (포지션 TP/SL + 알고 주문 병합, API 키 필요)
+  └── /api/limit-orders            # OKX 미체결 limit 주문 조회 → PendingLimitOrder[] (API 키 필요)
 
 클라이언트 (React Query 폴링)
   └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute
@@ -74,6 +82,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── hooks/useTradingLog.ts       # 60s 폴링
   └── hooks/useAccountBalance.ts   # 30s 폴링 — AccountBalance (API 키 없으면 available: false)
   └── hooks/usePositions.ts        # 30s 폴링 — Position[] (API 키 없으면 available: false)
+  └── hooks/useLimitOrders.ts      # 30s 폴링 — PendingLimitOrder[] (API 키 없으면 available: false)
 
 상태 관리
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
@@ -111,9 +120,11 @@ app/dashboard/page.tsx
       │   ├── [캔들 차트] 탭: CandleChart (캔들 / Volume / RSI(14) / MACD(12,26,9), 1m~1W)
       │   │                            pane 순서: 캔들(0) · Volume(1) · RSI(2) · MACD(3)
       │   │                            캔들 hover 시 헤더에 OHLC + Volume 수치 표시 (subscribeCrosshairMove)
-      │   │                            ICT 상시 활성 — FVG/OB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
+      │   │                            ICT 상시 활성 — FVG(흰)/IFVG(초록·빨강)/OB/BB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
+      │   │                            근접 필터 버튼 (헤더) — 타임프레임별 ±% 범위(1m/5m=2%, 15m/1H=3%, 4H/1D/1W=5%) ON/OFF 토글
       │   │                            API 키 설정 시 useTradingLog로 체결 내역 조회 → 진입(L↑/S↓)/청산(●) 포지션 마커 + hover 툴팁
       │   │                            API 키 설정 시 usePositions로 현재 포지션 조회 → TP(초록)/SL(빨강) 점선 수평선 표시 (createPriceLine)
+      │   │                            API 키 설정 시 useLimitOrders로 미체결 limit 주문 조회 → 초록 점선 수평선 + Open/Close L/S 레이블
       │   │                            커스텀 휠 줌 (커서 위치 기준 확대/축소), fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
       │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       │                            BalancePanel — 상단 4칸 그리드: 총자산·가용증거금·사용증거금·미실현손익 (useAccountBalance, 30s)
