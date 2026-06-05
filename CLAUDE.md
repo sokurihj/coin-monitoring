@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev      # 개발 서버 (http://localhost:3000)
 npm run build    # 프로덕션 빌드
 npm run lint     # ESLint 검사
+npx tsc --noEmit # 타입체크 (package.json에 별도 script 없음)
 npm run notifier # 텔레그램 고래 알림 백그라운드 프로세스 (로컬 실행용)
 fly deploy       # Fly.io 배포 (프로덕션 노티파이어)
 fly logs         # 실시간 노티파이어 로그 확인
