@@ -40,9 +40,10 @@ ICT 분석 (클라이언트 사이드)
                                    #   차트 색상: Bullish Breaker=#00c076(초록), Bearish Breaker=#ff3b5c(빨강), alpha=0.1
                                    # detectIFVGs() — filled FVG → 극성 반전된 Inverse FVG
                                    #   Bullish FVG 충전 → Bearish IFVG (저항), Bearish FVG 충전 → Bullish IFVG (지지)
+                                   #   fill 감지: close 기준 (close≤bottom / close≥top) — wick 터치만으로는 IFVG 생성 안 됨
                                    #   mitigated: fill 이후 봉의 close가 IFVG 범위 반대편 돌파 시 소멸 (BB와 동일 패턴)
                                    #   차트 색상: Bullish IFVG=#00c076(초록), Bearish IFVG=#ff3b5c(빨강), alpha=0.1
-                                   # detectLiquidityLevels() — lookback=15 (좌우 15봉 기준 스윙 고/저점만 BSL/SSL 인정)
+                                   # detectLiquidityLevels() — leftLookback=15, rightLookback=5 (좌 15봉 높이 기준, 우 5봉 확정 대기)
                                    # detectMarketStructure() — 좌측 10봉 + 우측 5봉 기준 스윙 확정
                                    #   BOS: 현재 추세 방향 스윙 레벨 몸통 돌파 (추세 지속), originTs=직전 스윙 원점
                                    #   CHoCH: 반대 추세 방향 — peakInDowntrend/valleyInUptrend(추세 전 최고/최저) 기준
@@ -53,7 +54,7 @@ ICT 분석 (클라이언트 사이드)
                                    # ZoneBox.lineMode=true면 점선 수평선 (BSL/SSL/BOS/CHoCH), false면 반투명 박스 (FVG/OB)
                                    # ZoneBox.endTs: lineMode 선 끝점 Unix seconds — 지정 시 해당 봉에서 종료, 미지정 시 차트 우측 끝
                                    # ZoneBox.labelBelow: true면 선 아래 레이블 (BOS↓/CHoCH↓), 기본은 선 위
-                                   # 존 표시: FVG 4개, IFVG 4개, OB 4개, BB 4개, BSL/SSL 4개
+                                   # 존 표시: FVG 4개, IFVG 4개, OB 4개, BB 4개, BSL 2개, SSL 2개
                                    # 근접 필터는 CandleChart에서 적용 — 타임프레임별 ±% 범위 내 존만 렌더링 (primitive 자체는 필터 없음)
 
 Next.js Route Handlers (서버 사이드, force-dynamic)
@@ -125,7 +126,8 @@ app/dashboard/page.tsx
       │   │                            API 키 설정 시 useTradingLog로 체결 내역 조회 → 진입(L↑/S↓)/청산(●) 포지션 마커 + hover 툴팁
       │   │                            API 키 설정 시 usePositions로 현재 포지션 조회 → TP(초록)/SL(빨강) 점선 수평선 표시 (createPriceLine)
       │   │                            API 키 설정 시 useLimitOrders로 미체결 limit 주문 조회 → 초록 점선 수평선 + Open/Close L/S 레이블
-      │   │                            커스텀 휠 줌 (커서 위치 기준 확대/축소), fitContent()는 최초 로드 및 코인/타임프레임 변경 시에만 호출 (폴링 시 뷰 유지)
+      │   │                            커스텀 휠 줌 (커서 위치 기준 확대/축소), Shift+드래그로 범위 선택 줌인, 더블클릭으로 줌인 전 뷰 복원 (없으면 fitContent())
+      │   │                            BSL/SSL: 0.3% 이내 클러스터 병합 (BSL→높은 것, SSL→낮은 것 유지), 각 최대 2개 표시
       │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       │                            BalancePanel — 상단 4칸 그리드: 총자산·가용증거금·사용증거금·미실현손익 (useAccountBalance, 30s)
       └── RightPanel (우, w-72)
