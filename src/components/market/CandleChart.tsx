@@ -14,6 +14,7 @@ import { calcRsi, calcMacd } from '@/lib/indicators'
 import { MONITORED_COINS } from '@/lib/constants'
 import {
   detectFVGs,
+  detectIFVGs,
   detectOrderBlocks,
   detectBreakerBlocks,
   detectLiquidityLevels,
@@ -24,12 +25,19 @@ import {
 import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
 import { useTradingLog } from '@/hooks/useTradingLog'
 import { usePositions } from '@/hooks/usePositions'
+import { useLimitOrders } from '@/hooks/useLimitOrders'
 import { type TradingFill } from '@/types/trading'
 
 const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
 
 const TIMEFRAMES = ['1m', '5m', '15m', '1H', '4H', '1D', '1W'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
+
+const PROXIMITY_RANGE: Record<Timeframe, number> = {
+  '1m': 0.02, '5m': 0.02,
+  '15m': 0.03, '1H': 0.03,
+  '4H': 0.05, '1D': 0.05, '1W': 0.05,
+}
 
 // fill이 속하는 봉의 timestamp(초) 반환 — bars는 ts 오름차순
 function findBarTs(fillTs: number, bars: { ts: number }[]): number | null {
@@ -63,10 +71,12 @@ export function CandleChart() {
   const coin = selectedCoin === 'ALL' ? MONITORED_COINS[0] : selectedCoin
   const [bar, setBar] = useState<Timeframe>('1m')
   const barRef = useRef<Timeframe>('1m')
+  const [proximityFilter, setProximityFilter] = useState(true)
 
   const { data: bars = [] } = useCandles(coin, bar)
   const { data: tradingData } = useTradingLog(coin)
   const { data: positionsData } = usePositions()
+  const { data: limitOrdersData } = useLimitOrders()
   const [volLabel, setVolLabel] = useState<string | null>(null)
   const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
   const [signalTooltip, setSignalTooltip] = useState<{ x: number; y: number; signal: ICTSignal } | null>(null)
@@ -324,7 +334,7 @@ export function CandleChart() {
     }
   }, [bars, coin, bar])
 
-  // ICT 오버레이 업데이트 (bars 또는 체결 내역 변경 시)
+  // ICT 오버레이 업데이트 (bars, 체결 내역, 근접 필터 변경 시)
   useEffect(() => {
     const { seriesMarkers, ictPrimitive } = refs.current
     if (!seriesMarkers || !ictPrimitive) return
@@ -341,24 +351,43 @@ export function CandleChart() {
     }
 
     const currentPrice = bars[bars.length - 1].close
+    const range = proximityFilter ? PROXIMITY_RANGE[bar] : null
+    const inRange = (top: number, bottom: number) =>
+      !range || (top >= currentPrice * (1 - range) && bottom <= currentPrice * (1 + range))
     const zones: ZoneBox[] = []
 
     // FVG: 미충전 존 전체, 최근 4개
     const fvgs = detectFVGs(bars).filter(f => !f.filled).slice(-4)
     for (const fvg of fvgs) {
+      if (!inRange(fvg.top, fvg.bottom)) continue
       zones.push({
         top: fvg.top,
         bottom: fvg.bottom,
         startTs: fvg.ts / 1000,
-        color: fvg.type === 'bullish' ? '#3b82f6' : '#ef4444',
-        alpha: 0.12,
+        color: '#ffffff',
+        alpha: 0.08,
         label: fvg.type === 'bullish' ? 'FVG↑' : 'FVG↓',
+      })
+    }
+
+    // IFVG: 충전된 FVG → 극성 반전, 최근 4개
+    const ifvgs = detectIFVGs(bars).slice(-4)
+    for (const ifvg of ifvgs) {
+      if (!inRange(ifvg.top, ifvg.bottom)) continue
+      zones.push({
+        top: ifvg.top,
+        bottom: ifvg.bottom,
+        startTs: ifvg.ts / 1000,
+        color: ifvg.type === 'bullish' ? '#00c076' : '#ff3b5c',
+        alpha: 0.1,
+        label: ifvg.type === 'bullish' ? 'IFVG↑' : 'IFVG↓',
       })
     }
 
     // OB: 미위반 존 전체, 최근 4개
     const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-4)
     for (const ob of obs) {
+      if (!inRange(ob.top, ob.bottom)) continue
       zones.push({
         top: ob.top,
         bottom: ob.bottom,
@@ -372,11 +401,12 @@ export function CandleChart() {
     // Breaker Block: 미소멸 존, 최근 4개
     const breakers = detectBreakerBlocks(bars).slice(-4)
     for (const bb of breakers) {
+      if (!inRange(bb.top, bb.bottom)) continue
       zones.push({
         top: bb.top,
         bottom: bb.bottom,
         startTs: bb.ts / 1000,
-        color: bb.type === 'bullish' ? '#06b6d4' : '#f59e0b',
+        color: bb.type === 'bullish' ? '#00c076' : '#ff3b5c',
         alpha: 0.1,
         label: bb.type === 'bullish' ? 'BB↑' : 'BB↓',
       })
@@ -385,6 +415,7 @@ export function CandleChart() {
     // 유동성 레벨: 미스윕 존 전체, 최근 4개 (수평 점선으로 표시)
     const levels = detectLiquidityLevels(bars, 15).filter(l => !l.swept).slice(-4)
     for (const level of levels) {
+      if (!inRange(level.price, level.price)) continue
       zones.push({
         top: level.price,
         bottom: level.price,
@@ -461,7 +492,7 @@ export function CandleChart() {
     // ICT 신호 + 포지션 마커 병합 (time 오름차순 필수)
     const allMarkers = [...ictMarkers, ...fillMarkers].sort((a, b) => (a.time as number) - (b.time as number))
     seriesMarkers.setMarkers(allMarkers)
-  }, [bars, tradingData])
+  }, [bars, tradingData, proximityFilter, bar])
 
   // TP/SL 수평선 업데이트 (포지션 변경 시)
   useEffect(() => {
@@ -504,6 +535,37 @@ export function CandleChart() {
     refs.current.tpslLines = lines
   }, [positionsData, coin])
 
+  // Limit 주문 수평선 업데이트
+  useEffect(() => {
+    const { candle } = refs.current
+    if (!candle) return
+
+    for (const line of refs.current.limitLines ?? []) {
+      candle.removePriceLine(line)
+    }
+    refs.current.limitLines = []
+
+    const orders = limitOrdersData?.orders ?? []
+    const coinOrders = orders.filter(o => o.coin === coin)
+    const lines: ReturnType<typeof candle.createPriceLine>[] = []
+
+    for (const order of coinOrders) {
+      const isOpen = (order.side === 'buy' && order.posSide === 'long') || (order.side === 'sell' && order.posSide === 'short')
+      const dir = isOpen ? 'Open' : 'Close'
+      const pos = order.posSide === 'long' ? 'L' : order.posSide === 'short' ? 'S' : (order.side === 'buy' ? 'B' : 'S')
+      lines.push(candle.createPriceLine({
+        price: order.price,
+        color: '#00c076',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: order.posSide === 'net' ? `Limit (${pos})` : `${dir} ${pos}`,
+      }))
+    }
+
+    refs.current.limitLines = lines
+  }, [limitOrdersData, coin])
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       {/* 헤더 */}
@@ -534,21 +596,34 @@ export function CandleChart() {
             </span>
           )}
         </span>
-        <div className="flex items-center gap-0.5">
-          {TIMEFRAMES.map(tf => (
-            <button
-              key={tf}
-              onClick={() => setBar(tf)}
-              className="px-2 py-0.5 text-xs font-mono rounded transition-colors"
-              style={{
-                background: bar === tf ? 'var(--buy)' : 'transparent',
-                color: bar === tf ? '#000' : 'var(--text-muted)',
-                fontWeight: bar === tf ? 700 : 400,
-              }}
-            >
-              {tf}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
+            {TIMEFRAMES.map(tf => (
+              <button
+                key={tf}
+                onClick={() => setBar(tf)}
+                className="px-2 py-0.5 text-xs font-mono rounded transition-colors"
+                style={{
+                  background: bar === tf ? 'var(--buy)' : 'transparent',
+                  color: bar === tf ? '#000' : 'var(--text-muted)',
+                  fontWeight: bar === tf ? 700 : 400,
+                }}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setProximityFilter(p => !p)}
+            className="px-1.5 py-0.5 text-xs font-mono rounded transition-colors"
+            style={{
+              background: proximityFilter ? 'var(--buy)' : 'transparent',
+              color: proximityFilter ? '#000' : 'var(--text-muted)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            ±{(PROXIMITY_RANGE[bar] * 100).toFixed(0)}%
+          </button>
         </div>
       </div>
 
@@ -624,8 +699,9 @@ export function CandleChart() {
         <LegendDot color="#3b82f6" label="MACD" />
         <LegendDot color="#ef4444" label="Signal" />
         <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
-        <LegendLine color="#3b82f6" label="FVG↑" />
-        <LegendLine color="#ef4444" label="FVG↓" />
+        <LegendLine color="#ffffff" label="FVG" />
+        <LegendLine color="#00c076" label="IFVG↑" />
+        <LegendLine color="#ff3b5c" label="IFVG↓" />
         <LegendLine color="#f97316" label="OB↑" />
         <LegendLine color="#a855f7" label="OB↓" />
         <LegendLine color="#fbbf24" label="BSL" />
@@ -645,6 +721,12 @@ export function CandleChart() {
             <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
             <LegendDash color="#00c076" label="TP" />
             <LegendDash color="#ff3b5c" label="SL" />
+          </>
+        )}
+        {limitOrdersData?.available && limitOrdersData.orders && limitOrdersData.orders.some(o => o.coin === coin) && (
+          <>
+            <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+            <LegendDash color="#00c076" label="Limit" />
           </>
         )}
       </div>

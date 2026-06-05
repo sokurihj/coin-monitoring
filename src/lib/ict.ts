@@ -86,6 +86,44 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
   return fvgs
 }
 
+// 충전된 FVG → 극성 반전된 IFVG (Inverse FVG), 재돌파 시 소멸
+export function detectIFVGs(bars: CandleBar[]): FVG[] {
+  const ifvgs: FVG[] = []
+
+  for (let i = 2; i < bars.length - 1; i++) {
+    const c1 = bars[i - 2]
+    const c2 = bars[i - 1]
+    const c3 = bars[i]
+    const refPrice = c2.close
+
+    // Bullish FVG 충전 → Bearish IFVG (저항 전환)
+    if (c1.high < c3.low) {
+      const top = c3.low
+      const bottom = c1.high
+      if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
+      const afterFvg = bars.slice(i + 1)
+      const filler = afterFvg.find(b => b.low <= bottom)
+      if (!filler) continue
+      const mitigated = bars.filter(b => b.ts > filler.ts).some(b => b.close > top)
+      if (!mitigated) ifvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled: true })
+    }
+
+    // Bearish FVG 충전 → Bullish IFVG (지지 전환)
+    if (c1.low > c3.high) {
+      const top = c1.low
+      const bottom = c3.high
+      if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
+      const afterFvg = bars.slice(i + 1)
+      const filler = afterFvg.find(b => b.high >= top)
+      if (!filler) continue
+      const mitigated = bars.filter(b => b.ts > filler.ts).some(b => b.close < bottom)
+      if (!mitigated) ifvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled: true })
+    }
+  }
+
+  return ifvgs
+}
+
 // 다음 캔들이 현재 캔들 몸통을 덮으면 OB로 감지
 export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
   const obs: OrderBlock[] = []
