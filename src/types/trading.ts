@@ -26,6 +26,13 @@ export interface TradingFill {
   ts: number
 }
 
+export interface AccountBalance {
+  totalEq: number
+  availEq: number
+  usedMargin: number
+  unrealizedPnl: number
+}
+
 export const TRADE_TAGS = [
   'OB 진입',
   'FVG 반응',
