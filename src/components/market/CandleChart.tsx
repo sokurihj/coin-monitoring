@@ -6,6 +6,7 @@ import {
   HistogramSeries,
   LineSeries,
   createSeriesMarkers,
+  LineStyle,
 } from 'lightweight-charts'
 import { useCandles } from '@/hooks/useCandles'
 import { useWhaleStore } from '@/store/whaleStore'
@@ -22,6 +23,7 @@ import {
 } from '@/lib/ict'
 import { ZoneBoxesPrimitive, type ZoneBox } from '@/lib/ict-primitives'
 import { useTradingLog } from '@/hooks/useTradingLog'
+import { usePositions } from '@/hooks/usePositions'
 import { type TradingFill } from '@/types/trading'
 
 const KST_OFFSET = 9 * 3600 // UTC+9 초 단위 오프셋
@@ -64,6 +66,7 @@ export function CandleChart() {
 
   const { data: bars = [] } = useCandles(coin, bar)
   const { data: tradingData } = useTradingLog(coin)
+  const { data: positionsData } = usePositions()
   const [volLabel, setVolLabel] = useState<string | null>(null)
   const [ohlcLabel, setOhlcLabel] = useState<{ o: number; h: number; l: number; c: number } | null>(null)
   const [signalTooltip, setSignalTooltip] = useState<{ x: number; y: number; signal: ICTSignal } | null>(null)
@@ -460,6 +463,47 @@ export function CandleChart() {
     seriesMarkers.setMarkers(allMarkers)
   }, [bars, tradingData])
 
+  // TP/SL 수평선 업데이트 (포지션 변경 시)
+  useEffect(() => {
+    const { candle } = refs.current
+    if (!candle) return
+
+    // 이전 라인 제거
+    for (const line of refs.current.tpslLines ?? []) {
+      candle.removePriceLine(line)
+    }
+    refs.current.tpslLines = []
+
+    const positions = positionsData?.positions ?? []
+    const coinPositions = positions.filter(p => p.coin === coin)
+    const lines: ReturnType<typeof candle.createPriceLine>[] = []
+
+    for (const pos of coinPositions) {
+      if (pos.tpTriggerPx) {
+        lines.push(candle.createPriceLine({
+          price: pos.tpTriggerPx,
+          color: '#00c076',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `TP (${pos.posSide === 'long' ? 'L' : 'S'})`,
+        }))
+      }
+      if (pos.slTriggerPx) {
+        lines.push(candle.createPriceLine({
+          price: pos.slTriggerPx,
+          color: '#ff3b5c',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `SL (${pos.posSide === 'long' ? 'L' : 'S'})`,
+        }))
+      }
+    }
+
+    refs.current.tpslLines = lines
+  }, [positionsData, coin])
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       {/* 헤더 */}
@@ -596,6 +640,13 @@ export function CandleChart() {
             <LegendDot color="#94a3b8" label="청산" />
           </>
         )}
+        {positionsData?.available && positionsData.positions && positionsData.positions.some(p => p.coin === coin && (p.tpTriggerPx || p.slTriggerPx)) && (
+          <>
+            <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+            <LegendDash color="#00c076" label="TP" />
+            <LegendDash color="#ff3b5c" label="SL" />
+          </>
+        )}
       </div>
     </div>
   )
@@ -614,6 +665,22 @@ function LegendLine({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="w-3 shrink-0" style={{ height: 1, background: color, display: 'inline-block' }} />
+      <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{label}</span>
+    </span>
+  )
+}
+
+function LegendDash({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span
+        className="w-3 shrink-0"
+        style={{
+          height: 1,
+          background: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
+          display: 'inline-block',
+        }}
+      />
       <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{label}</span>
     </span>
   )

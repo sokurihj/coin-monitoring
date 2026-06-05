@@ -33,6 +33,31 @@ export interface AccountBalance {
   unrealizedPnl: number
 }
 
+export interface RawPosition {
+  instId: string
+  posSide: 'long' | 'short' | 'net'
+  avgPx: string
+  tpTriggerPx: string
+  slTriggerPx: string
+  pos: string
+  lever: string
+  upl: string
+  liqPx: string
+}
+
+export interface Position {
+  instId: string
+  coin: string
+  posSide: 'long' | 'short'
+  avgPx: number
+  tpTriggerPx: number | null
+  slTriggerPx: number | null
+  size: number
+  lever: number
+  upl: number
+  liqPx: number | null
+}
+
 export const TRADE_TAGS = [
   'OB 진입',
   'FVG 반응',
