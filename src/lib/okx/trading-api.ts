@@ -1,4 +1,4 @@
-import { RawFill, TradingFill, AccountBalance, RawPosition, Position } from '@/types/trading'
+import { RawFill, TradingFill, AccountBalance, RawPosition, Position, PendingLimitOrder } from '@/types/trading'
 import { okxAuthFetch } from './client'
 
 export const getFills = (instId?: string, limit = 50): Promise<RawFill[]> =>
@@ -90,6 +90,31 @@ export async function getPositions(): Promise<Position[]> {
         liqPx: r.liqPx ? parseFloat(r.liqPx) || null : null,
       }
     })
+}
+
+interface RawPendingOrder {
+  instId: string
+  px: string
+  side: 'buy' | 'sell'
+  posSide: 'long' | 'short' | 'net'
+  state: string
+}
+
+export async function getPendingLimitOrders(): Promise<PendingLimitOrder[]> {
+  const rows = await okxAuthFetch<RawPendingOrder>('/api/v5/trade/orders-pending', {
+    instType: 'SWAP',
+    ordType: 'limit',
+  })
+  return rows
+    .filter(r => r.state === 'live' || r.state === 'partially_filled')
+    .map(r => ({
+      instId: r.instId,
+      coin: r.instId.split('-')[0],
+      price: parseFloat(r.px) || 0,
+      side: r.side,
+      posSide: r.posSide,
+    }))
+    .filter(r => r.price > 0)
 }
 
 export function parseFill(raw: RawFill): TradingFill {

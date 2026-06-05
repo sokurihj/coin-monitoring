@@ -1,0 +1,23 @@
+'use client'
+import { useQuery } from '@tanstack/react-query'
+import { PendingLimitOrder } from '@/types/trading'
+
+interface LimitOrdersResponse {
+  available: boolean
+  orders?: PendingLimitOrder[]
+  error?: string
+}
+
+async function fetchLimitOrders(): Promise<LimitOrdersResponse> {
+  const res = await fetch('/api/limit-orders')
+  return res.json()
+}
+
+export function useLimitOrders() {
+  return useQuery({
+    queryKey: ['limit-orders'],
+    queryFn: fetchLimitOrders,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+}

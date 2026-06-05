@@ -60,6 +60,7 @@ export interface Position {
 
 export const TRADE_TAGS = [
   'OB 진입',
+  'BB 진입',
   'FVG 반응',
   'BSL 스윕',
   'SSL 스윕',
@@ -72,6 +73,7 @@ export const TRADE_TAGS = [
 
 export const TP_TAGS = [
   'OB 도달',
+  'BB 도달',
   'FVG 도달',
   '유동성 스윕',
   '목표가 도달',
@@ -83,6 +85,7 @@ export const TP_TAGS = [
 
 export const SL_TAGS = [
   'OB 이탈',
+  'BB 이탈',
   'FVG 미반응',
   '구조 붕괴',
   '손절가 도달',
@@ -90,6 +93,14 @@ export const SL_TAGS = [
   '부분 손절',
   '기타',
 ] as const
+
+export interface PendingLimitOrder {
+  instId: string
+  coin: string
+  price: number
+  side: 'buy' | 'sell'
+  posSide: 'long' | 'short' | 'net'
+}
 
 export type TradeTag = typeof TRADE_TAGS[number]
 export type TpTag = typeof TP_TAGS[number]
