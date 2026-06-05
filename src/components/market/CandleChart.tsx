@@ -72,6 +72,7 @@ export function CandleChart() {
   const [bar, setBar] = useState<Timeframe>('1m')
   const barRef = useRef<Timeframe>('1m')
   const [proximityFilter, setProximityFilter] = useState(true)
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; endX: number } | null>(null)
 
   const { data: bars = [] } = useCandles(coin, bar)
   const { data: tradingData } = useTradingLog(coin)
@@ -257,11 +258,74 @@ export function CandleChart() {
       }
     }
 
+    // Shift+드래그 범위 줌
+    const dragRef = { startX: 0, active: false }
+    let prevRange: { from: number; to: number } | null = null
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!e.shiftKey) return
+      e.preventDefault()
+      dragRef.active = true
+      dragRef.startX = e.offsetX
+      prevRange = chart.timeScale().getVisibleLogicalRange() ?? null
+      chart.applyOptions({ handleScroll: false })
+      setSelectionBox({ startX: e.offsetX, endX: e.offsetX })
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.active) return
+      setSelectionBox(prev => prev ? { ...prev, endX: e.offsetX } : null)
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!dragRef.active) return
+      dragRef.active = false
+      chart.applyOptions({ handleScroll: true })
+      const ts = chart.timeScale()
+      const from = ts.coordinateToLogical(Math.min(dragRef.startX, e.offsetX))
+      const to   = ts.coordinateToLogical(Math.max(dragRef.startX, e.offsetX))
+      if (from !== null && to !== null && to > from + 1) {
+        ts.setVisibleLogicalRange({ from, to })
+      } else {
+        prevRange = null
+      }
+      setSelectionBox(null)
+    }
+
+    const handleDblClick = () => {
+      if (prevRange) {
+        chart.timeScale().setVisibleLogicalRange(prevRange)
+        prevRange = null
+      } else {
+        chart.timeScale().fitContent()
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' && containerRef.current) containerRef.current.style.cursor = 'crosshair'
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' && containerRef.current) containerRef.current.style.cursor = ''
+    }
+
     const el = containerRef.current
     el.addEventListener('wheel', handleWheel, { passive: false })
+    el.addEventListener('mousedown', handleMouseDown)
+    el.addEventListener('mousemove', handleMouseMove)
+    el.addEventListener('mouseup', handleMouseUp)
+    el.addEventListener('dblclick', handleDblClick)
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
 
     return () => {
       el.removeEventListener('wheel', handleWheel)
+      el.removeEventListener('mousedown', handleMouseDown)
+      el.removeEventListener('mousemove', handleMouseMove)
+      el.removeEventListener('mouseup', handleMouseUp)
+      el.removeEventListener('dblclick', handleDblClick)
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
       ro.disconnect()
       chart.remove()
       refs.current = {}
@@ -412,8 +476,24 @@ export function CandleChart() {
       })
     }
 
-    // 유동성 레벨: 미스윕 존 전체, 최근 4개 (수평 점선으로 표시)
-    const levels = detectLiquidityLevels(bars, 15).filter(l => !l.swept).slice(-4)
+    // 유동성 레벨: 0.3% 이내 클러스터 병합 후 최근 2개씩
+    const allLevels = detectLiquidityLevels(bars, 15).filter(l => !l.swept)
+
+    const bslSorted = allLevels.filter(l => l.type === 'BSL').sort((a, b) => b.price - a.price)
+    const bslDeduped: typeof bslSorted = []
+    for (const l of bslSorted) {
+      const prev = bslDeduped[bslDeduped.length - 1]
+      if (!prev || (prev.price - l.price) / prev.price > 0.003) bslDeduped.push(l)
+    }
+
+    const sslSorted = allLevels.filter(l => l.type === 'SSL').sort((a, b) => a.price - b.price)
+    const sslDeduped: typeof sslSorted = []
+    for (const l of sslSorted) {
+      const prev = sslDeduped[sslDeduped.length - 1]
+      if (!prev || (l.price - prev.price) / prev.price > 0.003) sslDeduped.push(l)
+    }
+
+    const levels = [...bslDeduped.slice(-2), ...sslDeduped.slice(-2)]
     for (const level of levels) {
       if (!inRange(level.price, level.price)) continue
       zones.push({
@@ -629,6 +709,20 @@ export function CandleChart() {
 
       {/* 차트 컨테이너 */}
       <div ref={containerRef} className="flex-1 relative">
+        {selectionBox && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, bottom: 0,
+              left: Math.min(selectionBox.startX, selectionBox.endX),
+              width: Math.abs(selectionBox.endX - selectionBox.startX),
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              pointerEvents: 'none',
+              zIndex: 5,
+            }}
+          />
+        )}
         {signalTooltip && (
           <div
             style={{
