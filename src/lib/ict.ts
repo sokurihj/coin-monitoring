@@ -88,19 +88,19 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
     if (body === 0) continue
     if (body / ob.close < MIN_OB_RATIO) continue
 
-    // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음
-    if (ob.close < ob.open && next.close > ob.open) {
+    // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음 (next.open은 OB 몸통 안 또는 아래에서 시작)
+    if (ob.close < ob.open && next.open <= ob.open && next.close > ob.open) {
       const top = ob.open
       const bottom = ob.close
-      const violated = bars.slice(i + 1).some(b => b.close < bottom)
+      const violated = bars.slice(i + 1, -1).some(b => b.close < bottom)
       obs.push({ type: 'bullish', top, bottom, ts: ob.ts, confirmedTs: next.ts, violated })
     }
 
-    // Bearish OB: 초록 캔들을 다음 빨간 캔들이 몸통까지 덮음
-    if (ob.close > ob.open && next.close < ob.open) {
+    // Bearish OB: 초록 캔들을 다음 빨간 캔들이 몸통까지 덮음 (next.open은 OB 몸통 안 또는 위에서 시작)
+    if (ob.close > ob.open && next.open >= ob.open && next.close < ob.open) {
       const top = ob.close
       const bottom = ob.open
-      const violated = bars.slice(i + 1).some(b => b.close > top)
+      const violated = bars.slice(i + 1, -1).some(b => b.close > top)
       obs.push({ type: 'bearish', top, bottom, ts: ob.ts, confirmedTs: next.ts, violated })
     }
   }
