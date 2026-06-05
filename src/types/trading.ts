@@ -47,7 +47,7 @@ export const TRADE_TAGS = [
 
 export const TP_TAGS = [
   'OB 도달',
-  'FVG 충전',
+  'FVG 도달',
   '유동성 스윕',
   '목표가 도달',
   '저항/지지 도달',
