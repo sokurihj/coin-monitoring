@@ -17,6 +17,11 @@ const MAX_RUNTIME_MS = process.env.MAX_RUNTIME_MS ? Number(process.env.MAX_RUNTI
 const startedAt = Date.now()
 
 const ICT_TIMEFRAMES = ['15m', '1H', '4H']
+const BAR_SIZE_MS: Record<string, number> = {
+  '15m': 15 * 60 * 1000,
+  '1H': 60 * 60 * 1000,
+  '4H': 4 * 60 * 60 * 1000,
+}
 
 // Redis 없을 때 fallback용 메모리 seen
 const notifiedIds = new Set<string>()
@@ -110,7 +115,9 @@ async function checkICTSignals() {
             }))
             .sort((a, b) => a.ts - b.ts)
 
-          const signals = generateICTSignals(bars)
+          const barMs = BAR_SIZE_MS[bar] ?? 60 * 60 * 1000
+          const cutoff = Date.now() - 3 * barMs
+          const signals = generateICTSignals(bars).filter(s => s.ts >= cutoff)
           return signals.map(s => ({ coin, bar, signal: s, key: `ict:${coin}:${bar}:${s.ts}:${s.type}` }))
         })
       )
