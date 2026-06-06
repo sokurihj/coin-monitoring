@@ -586,9 +586,9 @@ export function CandleChart() {
           title: `TP (${pos.posSide === 'long' ? 'L' : 'S'})`,
         }))
       }
-      if (pos.slTriggerPx) {
+      for (const slPx of pos.slTriggerPx) {
         lines.push(candle.createPriceLine({
-          price: pos.slTriggerPx,
+          price: slPx,
           color: '#ff3b5c',
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
@@ -795,7 +795,7 @@ export function CandleChart() {
             <LegendDot color="#94a3b8" label="청산" />
           </>
         )}
-        {positionsData?.available && positionsData.positions && positionsData.positions.some(p => p.coin === coin && (p.tpTriggerPx || p.slTriggerPx)) && (
+        {positionsData?.available && positionsData.positions && positionsData.positions.some(p => p.coin === coin && (p.tpTriggerPx || p.slTriggerPx.length > 0)) && (
           <>
             <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
             <LegendDash color="#00c076" label="TP" />

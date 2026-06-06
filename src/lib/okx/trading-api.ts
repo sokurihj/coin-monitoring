@@ -58,13 +58,14 @@ export async function getPositions(): Promise<Position[]> {
       .catch(() => [] as RawAlgoOrder[]),
   ])
 
-  // instId별 알고 주문 TP/SL 집계 (live 상태 우선)
-  const algoMap = new Map<string, { tp: number | null; sl: number | null }>()
+  // instId별 알고 주문 TP/SL 집계
+  const algoMap = new Map<string, { tp: number | null; sl: number[] }>()
   for (const a of algoRows) {
     if (a.state !== 'live' && a.state !== 'partially_effective') continue
-    const existing = algoMap.get(a.instId) ?? { tp: null, sl: null }
+    const existing = algoMap.get(a.instId) ?? { tp: null, sl: [] }
     if (!existing.tp && a.tpTriggerPx) existing.tp = parseFloat(a.tpTriggerPx) || null
-    if (!existing.sl && a.slTriggerPx) existing.sl = parseFloat(a.slTriggerPx) || null
+    const slPx = parseFloat(a.slTriggerPx) || 0
+    if (slPx && !existing.sl.includes(slPx)) existing.sl.push(slPx)
     algoMap.set(a.instId, existing)
   }
 
@@ -76,14 +77,16 @@ export async function getPositions(): Promise<Position[]> {
         ? (parseFloat(r.pos) > 0 ? 'long' : 'short')
         : r.posSide as 'long' | 'short'
       const algo = algoMap.get(r.instId)
+      // 포지션 직접 SL 우선, 없으면 알고 주문 SL 목록 전체 사용
+      const directSl = r.slTriggerPx ? parseFloat(r.slTriggerPx) || null : null
+      const slTriggerPx = directSl ? [directSl] : (algo?.sl ?? [])
       return {
         instId: r.instId,
         coin,
         posSide,
         avgPx: parseFloat(r.avgPx) || 0,
-        // 포지션 직접 TP/SL 우선, 없으면 알고 주문에서 보완
         tpTriggerPx: (r.tpTriggerPx ? parseFloat(r.tpTriggerPx) || null : null) ?? algo?.tp ?? null,
-        slTriggerPx: (r.slTriggerPx ? parseFloat(r.slTriggerPx) || null : null) ?? algo?.sl ?? null,
+        slTriggerPx,
         size: Math.abs(parseFloat(r.pos)) || 0,
         lever: parseFloat(r.lever) || 0,
         upl: parseFloat(r.upl) || 0,

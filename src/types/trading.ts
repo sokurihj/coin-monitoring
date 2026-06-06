@@ -51,7 +51,7 @@ export interface Position {
   posSide: 'long' | 'short'
   avgPx: number
   tpTriggerPx: number | null
-  slTriggerPx: number | null
+  slTriggerPx: number[]
   size: number
   lever: number
   upl: number
