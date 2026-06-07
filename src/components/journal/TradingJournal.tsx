@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTradingLog } from '@/hooks/useTradingLog'
 import { useAccountBalance } from '@/hooks/useAccountBalance'
 import { useTradingLogStore } from '@/store/tradingLogStore'
@@ -311,6 +311,55 @@ export function TradingJournal() {
   const coin = selectedCoin === 'ALL' ? undefined : selectedCoin
   const { data, isLoading, error } = useTradingLog(coin)
 
+  const [olderFills, setOlderFills] = useState<TradingFill[]>([])
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const cursorRef = useRef<string | null>(null)
+
+  // 코인 필터 변경 시 이전 페이지 데이터 초기화
+  useEffect(() => {
+    setOlderFills([])
+    setHasMore(true)
+    cursorRef.current = null
+  }, [coin])
+
+  const allFills = useMemo(() => {
+    const latest = data?.fills ?? []
+    const merged = [...latest, ...olderFills]
+    const seen = new Set<string>()
+    return merged
+      .filter(f => {
+        const key = f.id || `${f.ordId}-${f.ts}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .sort((a, b) => b.ts - a.ts)
+  }, [data?.fills, olderFills])
+
+  const loadMore = async () => {
+    if (!hasMore || isLoadingMore) return
+    const after = cursorRef.current ?? data?.nextCursor
+    if (!after) return
+
+    setIsLoadingMore(true)
+    try {
+      const params = new URLSearchParams({ limit: '100' })
+      if (coin) params.set('coin', coin)
+      params.set('after', after)
+      const res = await fetch(`/api/trading-log?${params}`)
+      const json = await res.json()
+      const newFills: TradingFill[] = json.fills ?? []
+      setOlderFills(prev => [...prev, ...newFills])
+      cursorRef.current = json.nextCursor ?? null
+      if (!json.nextCursor) setHasMore(false)
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
@@ -340,9 +389,7 @@ export function TradingJournal() {
     )
   }
 
-  const fills = data.fills ?? []
-
-  if (fills.length === 0) {
+  if (allFills.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
@@ -355,7 +402,7 @@ export function TradingJournal() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       <BalancePanel />
-      <SummaryBar fills={fills} />
+      <SummaryBar fills={allFills} />
 
       <div
         className="flex items-center gap-2 px-3 py-1.5 border-b text-[10px] shrink-0 uppercase tracking-wide"
@@ -370,7 +417,7 @@ export function TradingJournal() {
       </div>
 
       <div className="overflow-y-auto flex-1">
-        {groupByMonth(fills).map(({ month, fills: monthFills }) => (
+        {groupByMonth(allFills).map(({ month, fills: monthFills }) => (
           <div key={month}>
             <MonthlyHeader month={month} fills={monthFills} />
             {monthFills.map((fill, i) => (
@@ -378,6 +425,25 @@ export function TradingJournal() {
             ))}
           </div>
         ))}
+
+        {/* 더 보기 버튼 */}
+        {hasMore && data?.nextCursor && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={loadMore}
+              disabled={isLoadingMore}
+              className="px-4 py-1.5 rounded text-xs font-mono transition-opacity"
+              style={{
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                color: isLoadingMore ? 'var(--text-muted)' : 'var(--text-secondary)',
+                opacity: isLoadingMore ? 0.5 : 1,
+              }}
+            >
+              {isLoadingMore ? '불러오는 중...' : '더 보기'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

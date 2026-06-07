@@ -13,13 +13,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const coin = searchParams.get('coin')
   const limitParam = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)
+  const after = searchParams.get('after') ?? undefined
 
   try {
     const instId = coin && MONITORED_COINS.includes(coin) ? `${coin}-USDT-SWAP` : undefined
-    const rawFills = await getFills(instId, limitParam)
+    const rawFills = await getFills(instId, limitParam, after)
     const fills = rawFills.map(parseFill).sort((a, b) => b.ts - a.ts)
+    // OKX는 최신순으로 반환 — 마지막 항목이 가장 오래된 fill
+    const nextCursor = rawFills.length >= limitParam ? rawFills[rawFills.length - 1].fillId : undefined
 
-    return NextResponse.json({ available: true, fills, fetchedAt: Date.now() })
+    return NextResponse.json({ available: true, fills, nextCursor, fetchedAt: Date.now() })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

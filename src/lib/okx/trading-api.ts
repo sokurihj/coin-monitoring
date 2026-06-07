@@ -1,11 +1,12 @@
 import { RawFill, TradingFill, AccountBalance, RawPosition, Position, PendingLimitOrder } from '@/types/trading'
 import { okxAuthFetch } from './client'
 
-export const getFills = (instId?: string, limit = 50): Promise<RawFill[]> =>
+export const getFills = (instId?: string, limit = 50, after?: string): Promise<RawFill[]> =>
   okxAuthFetch<RawFill>('/api/v5/trade/fills', {
     instType: 'SWAP',
     ...(instId ? { instId } : {}),
     limit: String(limit),
+    ...(after ? { after } : {}),
   })
 
 interface RawBalanceDetail {

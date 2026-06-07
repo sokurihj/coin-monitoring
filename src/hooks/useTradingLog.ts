@@ -7,6 +7,7 @@ interface TradingLogResponse {
   fills: TradingFill[]
   fetchedAt?: number
   error?: string
+  nextCursor?: string
 }
 
 async function fetchTradingLog(coin?: string): Promise<TradingLogResponse> {
