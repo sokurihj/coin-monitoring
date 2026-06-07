@@ -223,6 +223,57 @@ function BalancePanel() {
   )
 }
 
+function getMonthKey(ts: number) {
+  const d = new Date(ts)
+  return `${d.getFullYear()}년 ${String(d.getMonth() + 1).padStart(2, '0')}월`
+}
+
+function groupByMonth(fills: TradingFill[]) {
+  const groups = new Map<string, TradingFill[]>()
+  for (const fill of fills) {
+    const key = getMonthKey(fill.ts)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(fill)
+  }
+  return Array.from(groups.entries()).map(([month, monthFills]) => ({ month, fills: monthFills }))
+}
+
+function MonthlyHeader({ month, fills }: { month: string; fills: TradingFill[] }) {
+  const withPnl = fills.filter(f => f.pnl !== 0)
+  const totalPnl = withPnl.reduce((sum, f) => sum + f.pnl, 0)
+  const winners = withPnl.filter(f => f.pnl > 0).length
+  const losers = withPnl.filter(f => f.pnl < 0).length
+  const winRate = withPnl.length > 0 ? (winners / withPnl.length) * 100 : null
+
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2 text-[11px] font-mono sticky top-0 z-10"
+      style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}
+    >
+      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{month}</span>
+      <span style={{ color: 'var(--text-muted)' }}>{fills.length}건</span>
+      {winRate !== null && (
+        <>
+          <span style={{ color: 'var(--text-muted)' }}>
+            승률{' '}
+            <span style={{ color: winRate >= 50 ? 'var(--buy)' : 'var(--sell)' }}>
+              {winRate.toFixed(0)}%
+            </span>
+          </span>
+          <span style={{ color: 'var(--buy)' }}>{winners}승</span>
+          <span style={{ color: 'var(--sell)' }}>{losers}패</span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            P&L{' '}
+            <span className="font-semibold" style={{ color: totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)' }}>
+              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+            </span>
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
 function SummaryBar({ fills }: { fills: TradingFill[] }) {
   const withPnl = fills.filter(f => f.pnl !== 0)
   const totalPnl = withPnl.reduce((sum, f) => sum + f.pnl, 0)
@@ -319,8 +370,13 @@ export function TradingJournal() {
       </div>
 
       <div className="overflow-y-auto flex-1">
-        {fills.map((fill, i) => (
-          <FillRow key={fill.id || `${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
+        {groupByMonth(fills).map(({ month, fills: monthFills }) => (
+          <div key={month}>
+            <MonthlyHeader month={month} fills={monthFills} />
+            {monthFills.map((fill, i) => (
+              <FillRow key={fill.id || `${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
+            ))}
+          </div>
         ))}
       </div>
     </div>
