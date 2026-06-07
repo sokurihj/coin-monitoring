@@ -123,6 +123,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
 // violated OB에서 파생 — 극성 반전 후 미소멸 존만 반환
 export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
   const breakers: BreakerBlock[] = []
+  const closedBars = bars.slice(0, -1)
 
   for (const ob of detectOrderBlocks(bars)) {
     if (!ob.violated) continue
@@ -134,7 +135,7 @@ export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
       const violator = afterConfirm.find(b => b.close < ob.bottom)
       if (!violator) continue
       const breakerTs = violator.ts
-      const mitigated = bars.filter(b => b.ts > breakerTs).some(b => b.close > ob.top)
+      const mitigated = closedBars.filter(b => b.ts > breakerTs).some(b => b.close > ob.top)
       if (!mitigated) {
         breakers.push({ type: 'bearish', top: ob.top, bottom: ob.bottom, ts: ob.ts, confirmedTs: ob.confirmedTs, breakerTs, mitigated })
       }
@@ -143,7 +144,7 @@ export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
       const violator = afterConfirm.find(b => b.close > ob.top)
       if (!violator) continue
       const breakerTs = violator.ts
-      const mitigated = bars.filter(b => b.ts > breakerTs).some(b => b.close < ob.bottom)
+      const mitigated = closedBars.filter(b => b.ts > breakerTs).some(b => b.close < ob.bottom)
       if (!mitigated) {
         breakers.push({ type: 'bullish', top: ob.top, bottom: ob.bottom, ts: ob.ts, confirmedTs: ob.confirmedTs, breakerTs, mitigated })
       }
