@@ -35,7 +35,7 @@ ICT 분석 (클라이언트 사이드)
                                    #   violated 체크: 마감된 봉만 사용 (bars.slice(i+1, -1)) — 진행 중인 봉 제외로 깜빡임 방지
                                    # detectBreakerBlocks() — violated OB에서 파생, 극성 반전된 존
                                    #   Bullish OB violated → Bearish Breaker BB↓ (저항), Bearish OB violated → Bullish Breaker BB↑ (지지)
-                                   #   breakerTs: violation 유발 첫 봉 ts, mitigated: 전환 후 재돌파 시 소멸 (숨김)
+                                   #   breakerTs: violation 유발 첫 봉 ts, mitigated: 전환 후 재돌파 시 소멸 (숨김, 마감된 봉만 검사)
                                    #   신호 컨플루언스: BB↑/BB↓ (FVG/OB와 동일 레벨, hasBuyZone/hasSellZone 조건 포함)
                                    #   차트 색상: Bullish Breaker=#00c076(초록), Bearish Breaker=#ff3b5c(빨강), alpha=0.1
                                    # detectLiquidityLevels() — leftLookback=15, rightLookback=5 (좌 15봉 높이 기준, 우 5봉 확정 대기)
@@ -119,12 +119,16 @@ app/dashboard/page.tsx
       │   │                            ICT 상시 활성 — FVG(흰)/OB/BB 반투명 박스 + BSL/SSL 점선 + BUY/SELL 마커 (hover 시 근거 툴팁 표시)
       │   │                            근접 필터 버튼 (헤더) — 타임프레임별 ±% 범위(1m/5m=2%, 15m/1H=3%, 4H/1D/1W=5%) ON/OFF 토글
       │   │                            API 키 설정 시 useTradingLog로 체결 내역 조회 → 진입(L↑/S↓)/청산(●) 포지션 마커 + hover 툴팁
-      │   │                            API 키 설정 시 usePositions로 현재 포지션 조회 → TP(초록)/SL(빨강) 점선 수평선 표시 (createPriceLine)
+      │   │                            API 키 설정 시 usePositions로 현재 포지션 조회 → TP(초록) 단일 + SL(빨강) 다중 점선 수평선 표시 (createPriceLine, slTriggerPx 배열 순회)
       │   │                            API 키 설정 시 useLimitOrders로 미체결 limit 주문 조회 → 초록 점선 수평선 + Open/Close L/S 레이블
       │   │                            커스텀 휠 줌 (커서 위치 기준 확대/축소), Shift+드래그로 범위 선택 줌인, 더블클릭으로 줌인 전 뷰 복원 (없으면 fitContent())
       │   │                            BSL/SSL: 0.3% 이내 클러스터 병합 (BSL→높은 것, SSL→낮은 것 유지), 각 최대 2개 표시
       │   └── [매매일지] 탭: TradingJournal (OKX 체결 내역 + 수동 태깅 + 메모, API 키 필요)
       │                            BalancePanel — 상단 4칸 그리드: 총자산·가용증거금·사용증거금·미실현손익 (useAccountBalance, 30s)
+      │                            SummaryBar — 전체 건수·승률·손익 집계 (allFills 기준, pnl≠0 체결만 계산)
+      │                            MonthlyHeader — 월별 건수·승률(승/패 수)·누적 P&L 헤더 (sticky top)
+      │                            커서 기반 페이지네이션 — "더 보기" 버튼으로 이전 체결 추가 로드 (nextCursor)
+      │                            같은 ordId 부분체결 1행 통합 — 가격 가중평균, 수량·PnL 합산 (groupFillsByOrder)
       └── RightPanel (우, w-72)
           ├── [shrink-0 스크롤 영역]
           │   ├── OIMoversTable
