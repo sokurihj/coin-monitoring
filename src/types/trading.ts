@@ -1,5 +1,5 @@
 export interface RawFill {
-  fillId: string
+  billId: string
   ordId: string
   tradeId: string
   instId: string

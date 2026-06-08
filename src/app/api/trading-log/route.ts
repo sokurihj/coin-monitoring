@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     const instId = coin && MONITORED_COINS.includes(coin) ? `${coin}-USDT-SWAP` : undefined
     const rawFills = await getFills(instId, limitParam, after)
     const fills = rawFills.map(parseFill).sort((a, b) => b.ts - a.ts)
-    // OKX는 최신순으로 반환 — 마지막 항목이 가장 오래된 fill
-    const nextCursor = rawFills.length >= limitParam ? rawFills[rawFills.length - 1].fillId : undefined
+    // OKX는 최신순으로 반환 — 마지막 항목이 가장 오래된 fill (billId로 페이지네이션)
+    const nextCursor = rawFills.length >= limitParam ? rawFills[rawFills.length - 1].billId || undefined : undefined
 
     return NextResponse.json({ available: true, fills, nextCursor, fetchedAt: Date.now() })
   } catch (e) {

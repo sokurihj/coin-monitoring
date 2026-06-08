@@ -124,7 +124,7 @@ export async function getPendingLimitOrders(): Promise<PendingLimitOrder[]> {
 export function parseFill(raw: RawFill): TradingFill {
   const coin = raw.instId.split('-')[0]
   return {
-    id: raw.tradeId || raw.fillId,
+    id: raw.tradeId || raw.billId,
     ordId: raw.ordId,
     coin,
     instId: raw.instId,
