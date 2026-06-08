@@ -9,7 +9,7 @@ OKX Public API (https://www.okx.com/api/v5/...)
   └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
   └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
   └── src/lib/okx/trading-api.ts  # 매매일지 전용 API 함수들 — getFills() / parseFill() / getAccountBalance() / getPositions() / getPendingLimitOrders()
-                                   # parseFill: id = tradeId || fillId (tradeId 우선, 빈 문자열 fallback)
+                                   # parseFill: id = tradeId || billId (tradeId 우선, OKX API는 fillId 대신 billId 반환)
                                    # getPositions: /api/v5/account/positions + /api/v5/trade/orders-algo-pending 병렬 조회
                                    #   알고 주문(conditional) TP/SL을 instId 기준으로 포지션에 병합 (포지션 직접 설정 우선)
                                    # getPendingLimitOrders: /api/v5/trade/orders-pending (instType=SWAP, ordType=limit)
@@ -127,7 +127,7 @@ app/dashboard/page.tsx
       │                            BalancePanel — 상단 4칸 그리드: 총자산·가용증거금·사용증거금·미실현손익 (useAccountBalance, 30s)
       │                            SummaryBar — 전체 건수·승률·손익 집계 (allFills 기준, pnl≠0 체결만 계산)
       │                            MonthlyHeader — 월별 건수·승률(승/패 수)·누적 P&L 헤더 (sticky top)
-      │                            커서 기반 페이지네이션 — "더 보기" 버튼으로 이전 체결 추가 로드 (nextCursor)
+      │                            무한 스크롤 — IntersectionObserver로 스크롤 끝 도달 시 자동 로드 (nextCursor, billId 기준)
       │                            같은 ordId 부분체결 1행 통합 — 가격 가중평균, 수량·PnL 합산 (groupFillsByOrder)
       └── RightPanel (우, w-72)
           ├── [shrink-0 스크롤 영역]
