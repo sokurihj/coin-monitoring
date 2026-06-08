@@ -31,7 +31,24 @@ function PnlBadge({ pnl }: { pnl: number }) {
 }
 
 function fillKey(fill: TradingFill) {
-  return fill.id || `${fill.ordId}-${fill.ts}`
+  return fill.ordId || fill.id || `${fill.ordId}-${fill.ts}`
+}
+
+function groupFillsByOrder(fills: TradingFill[]): TradingFill[] {
+  const groups = new Map<string, TradingFill[]>()
+  for (const fill of fills) {
+    const key = fill.ordId || fill.id
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(fill)
+  }
+  return Array.from(groups.values()).map(group => {
+    if (group.length === 1) return group[0]
+    const totalSize = group.reduce((sum, f) => sum + f.size, 0)
+    const weightedPrice = group.reduce((sum, f) => sum + f.price * f.size, 0) / totalSize
+    const totalPnl = group.reduce((sum, f) => sum + f.pnl, 0)
+    const latest = group.reduce((a, b) => a.ts >= b.ts ? a : b)
+    return { ...latest, id: latest.ordId || latest.id, price: weightedPrice, size: totalSize, pnl: totalPnl }
+  })
 }
 
 function TagButton({ label, active, color, onClick }: { label: string; active: boolean; color: string; onClick: () => void }) {
@@ -327,14 +344,13 @@ export function TradingJournal() {
     const latest = data?.fills ?? []
     const merged = [...latest, ...olderFills]
     const seen = new Set<string>()
-    return merged
-      .filter(f => {
-        const key = f.id || `${f.ordId}-${f.ts}`
-        if (seen.has(key)) return false
-        seen.add(key)
-        return true
-      })
-      .sort((a, b) => b.ts - a.ts)
+    const deduped = merged.filter(f => {
+      const key = f.id || `${f.ordId}-${f.ts}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    return groupFillsByOrder(deduped).sort((a, b) => b.ts - a.ts)
   }, [data?.fills, olderFills])
 
   const loadMore = async () => {
