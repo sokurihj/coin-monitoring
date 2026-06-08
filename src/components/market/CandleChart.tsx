@@ -48,8 +48,24 @@ function findBarTs(fillTs: number, bars: { ts: number }[]): number | null {
 }
 
 function fmtPnl(pnl: number): string {
-  const abs = Math.round(Math.abs(pnl))
-  return pnl >= 0 ? `+$${abs}` : `-$${abs}`
+  const abs = Math.abs(pnl)
+  const formatted = abs >= 1 ? Math.round(abs).toString() : abs.toFixed(1)
+  return pnl >= 0 ? `+$${formatted}` : `-$${formatted}`
+}
+
+function groupFillsByOrdId(fills: TradingFill[]): TradingFill[] {
+  const groups = new Map<string, TradingFill[]>()
+  for (const f of fills) {
+    const key = f.ordId || f.id || `${f.ts}-${f.coin}-${f.side}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(f)
+  }
+  return Array.from(groups.values()).map(group => {
+    if (group.length === 1) return group[0]
+    const totalPnl = group.reduce((sum, f) => sum + f.pnl, 0)
+    const latest = group.reduce((a, b) => a.ts >= b.ts ? a : b)
+    return { ...latest, pnl: totalPnl }
+  })
 }
 
 type FillMarkerData = { time: number; fill: TradingFill }
@@ -527,8 +543,8 @@ export function CandleChart() {
       size: 1,
     }))
 
-    // 체결 내역 → 포지션 마커
-    const fills = tradingData?.fills ?? []
+    // 체결 내역 → 포지션 마커 (같은 ordId 부분체결 합산)
+    const fills = groupFillsByOrdId(tradingData?.fills ?? [])
     const fillMarkersData: FillMarkerData[] = []
     const fillMarkers = fills.flatMap(f => {
       const time = findBarTs(f.ts, bars)
