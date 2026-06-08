@@ -31,7 +31,7 @@ function PnlBadge({ pnl }: { pnl: number }) {
 }
 
 function fillKey(fill: TradingFill) {
-  return fill.ordId || fill.id || `${fill.ordId}-${fill.ts}`
+  return fill.id || `${fill.ordId}-${fill.ts}`
 }
 
 function groupFillsByOrder(fills: TradingFill[]): TradingFill[] {
@@ -47,7 +47,7 @@ function groupFillsByOrder(fills: TradingFill[]): TradingFill[] {
     const weightedPrice = group.reduce((sum, f) => sum + f.price * f.size, 0) / totalSize
     const totalPnl = group.reduce((sum, f) => sum + f.pnl, 0)
     const latest = group.reduce((a, b) => a.ts >= b.ts ? a : b)
-    return { ...latest, id: latest.ordId || latest.id, price: weightedPrice, size: totalSize, pnl: totalPnl }
+    return { ...latest, price: weightedPrice, size: totalSize, pnl: totalPnl }
   })
 }
 
