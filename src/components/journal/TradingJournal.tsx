@@ -37,7 +37,7 @@ function fillKey(fill: TradingFill) {
 function groupFillsByOrder(fills: TradingFill[]): TradingFill[] {
   const groups = new Map<string, TradingFill[]>()
   for (const fill of fills) {
-    const key = fill.ordId || fill.id
+    const key = fill.ordId || fill.id || `${fill.ts}-${fill.coin}-${fill.side}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(fill)
   }
@@ -332,6 +332,8 @@ export function TradingJournal() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const cursorRef = useRef<string | null>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const loadMoreRef = useRef<() => void>(() => {})
 
   // 코인 필터 변경 시 이전 페이지 데이터 초기화
   useEffect(() => {
@@ -375,6 +377,19 @@ export function TradingJournal() {
       setIsLoadingMore(false)
     }
   }
+  loadMoreRef.current = loadMore
+
+  // data?.nextCursor가 바뀔 때마다 재설정 — sentinel이 이미 뷰포트에 있으면 즉시 발동
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMoreRef.current() },
+      { rootMargin: '120px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [data?.nextCursor])
 
   if (isLoading) {
     return (
@@ -442,24 +457,11 @@ export function TradingJournal() {
           </div>
         ))}
 
-        {/* 더 보기 버튼 */}
-        {hasMore && data?.nextCursor && (
-          <div className="flex justify-center py-3">
-            <button
-              onClick={loadMore}
-              disabled={isLoadingMore}
-              className="px-4 py-1.5 rounded text-xs font-mono transition-opacity"
-              style={{
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                color: isLoadingMore ? 'var(--text-muted)' : 'var(--text-secondary)',
-                opacity: isLoadingMore ? 0.5 : 1,
-              }}
-            >
-              {isLoadingMore ? '불러오는 중...' : '더 보기'}
-            </button>
-          </div>
-        )}
+        <div ref={sentinelRef} className="py-2 flex justify-center h-8">
+          {isLoadingMore && (
+            <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>불러오는 중...</span>
+          )}
+        </div>
       </div>
     </div>
   )
