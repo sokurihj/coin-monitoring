@@ -255,7 +255,7 @@ function groupByMonth(fills: TradingFill[]) {
   return Array.from(groups.entries()).map(([month, monthFills]) => ({ month, fills: monthFills }))
 }
 
-function MonthlyHeader({ month, fills }: { month: string; fills: TradingFill[] }) {
+function MonthlyHeader({ month, fills, collapsed, onToggle }: { month: string; fills: TradingFill[]; collapsed: boolean; onToggle: () => void }) {
   const withPnl = fills.filter(f => f.pnl !== 0)
   const totalPnl = withPnl.reduce((sum, f) => sum + f.pnl, 0)
   const winners = withPnl.filter(f => f.pnl > 0).length
@@ -264,9 +264,11 @@ function MonthlyHeader({ month, fills }: { month: string; fills: TradingFill[] }
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 text-[11px] font-mono sticky top-0 z-10"
+      className="flex items-center gap-3 px-3 py-2 text-[11px] font-mono sticky top-0 z-10 cursor-pointer select-none"
       style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}
+      onClick={onToggle}
     >
+      <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>{collapsed ? '▶' : '▼'}</span>
       <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{month}</span>
       <span style={{ color: 'var(--text-muted)' }}>{fills.length}건</span>
       {winRate !== null && (
@@ -331,6 +333,7 @@ export function TradingJournal() {
   const [olderFills, setOlderFills] = useState<TradingFill[]>([])
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const cursorRef = useRef<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadMoreRef = useRef<() => void>(() => {})
@@ -448,14 +451,22 @@ export function TradingJournal() {
       </div>
 
       <div className="overflow-y-auto flex-1">
-        {groupByMonth(allFills).map(({ month, fills: monthFills }) => (
-          <div key={month}>
-            <MonthlyHeader month={month} fills={monthFills} />
-            {monthFills.map((fill, i) => (
-              <FillRow key={fill.id || `${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
-            ))}
-          </div>
-        ))}
+        {groupByMonth(allFills).map(({ month, fills: monthFills }) => {
+          const collapsed = collapsedMonths.has(month)
+          const toggle = () => setCollapsedMonths(prev => {
+            const next = new Set(prev)
+            if (next.has(month)) next.delete(month); else next.add(month)
+            return next
+          })
+          return (
+            <div key={month}>
+              <MonthlyHeader month={month} fills={monthFills} collapsed={collapsed} onToggle={toggle} />
+              {!collapsed && monthFills.map((fill, i) => (
+                <FillRow key={fill.id || `${fill.ordId}-${fill.ts}-${i}`} fill={fill} />
+              ))}
+            </div>
+          )
+        })}
 
         <div ref={sentinelRef} className="py-2 flex justify-center h-8">
           {isLoadingMore && (
