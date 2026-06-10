@@ -121,11 +121,12 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
 }
 
 // violated OB에서 파생 — 극성 반전 후 미소멸 존만 반환
-export function detectBreakerBlocks(bars: CandleBar[]): BreakerBlock[] {
+// precomputedObs: 이미 계산된 OB를 넘기면 내부 재계산 생략
+export function detectBreakerBlocks(bars: CandleBar[], precomputedObs?: OrderBlock[]): BreakerBlock[] {
   const breakers: BreakerBlock[] = []
   const closedBars = bars.slice(0, -1)
 
-  for (const ob of detectOrderBlocks(bars)) {
+  for (const ob of (precomputedObs ?? detectOrderBlocks(bars))) {
     if (!ob.violated) continue
 
     const afterConfirm = bars.filter(b => b.ts > ob.confirmedTs)
@@ -289,7 +290,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
     // 이 봉이 마감된 시점까지의 데이터로만 레벨 계산 (소급 방지)
     const sub = bars.slice(0, idx + 1)
     const fvgs = detectFVGs(sub).filter(f => !f.filled)
-    const obs = detectOrderBlocks(sub).filter(o => !o.violated)
+    const allObs = detectOrderBlocks(sub)
+    const obs = allObs.filter(o => !o.violated)
     const levels = detectLiquidityLevels(sub).filter(l => !l.swept)
 
     const buyReasons: string[] = []
@@ -318,8 +320,8 @@ export function generateICTSignals(bars: CandleBar[]): ICTSignal[] {
       }
     }
 
-    // 이 봉 이전에 확정된 미소멸 Breaker Block에 접촉
-    const breakers = detectBreakerBlocks(sub)
+    // 이 봉 이전에 확정된 미소멸 Breaker Block에 접촉 (allObs 재사용으로 재계산 방지)
+    const breakers = detectBreakerBlocks(sub, allObs)
     for (const bb of breakers.filter(b => b.breakerTs < bar.ts)) {
       if (bb.type === 'bullish' && bar.low <= bb.top && bar.high >= bb.bottom) {
         if (!buyReasons.includes('BB↑')) buyReasons.push('BB↑')

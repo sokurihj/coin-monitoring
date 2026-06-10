@@ -450,8 +450,9 @@ export function CandleChart() {
       })
     }
 
-    // OB: 미위반 존 전체, 최근 4개
-    const obs = detectOrderBlocks(bars).filter(o => !o.violated).slice(-4)
+    // OB: 미위반 존 전체, 최근 4개 (allObs는 Breaker 계산에도 재사용)
+    const allObs = detectOrderBlocks(bars)
+    const obs = allObs.filter(o => !o.violated).slice(-4)
     for (const ob of obs) {
       if (!inRange(ob.top, ob.bottom)) continue
       zones.push({
@@ -464,8 +465,8 @@ export function CandleChart() {
       })
     }
 
-    // Breaker Block: 미소멸 존, 최근 4개
-    const breakers = detectBreakerBlocks(bars).slice(-4)
+    // Breaker Block: 미소멸 존, 최근 4개 (allObs 재사용으로 재계산 방지)
+    const breakers = detectBreakerBlocks(bars, allObs).slice(-4)
     for (const bb of breakers) {
       if (!inRange(bb.top, bb.bottom)) continue
       zones.push({
