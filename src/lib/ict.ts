@@ -98,7 +98,7 @@ export function detectOrderBlocks(bars: CandleBar[]): OrderBlock[] {
     const body = Math.abs(ob.close - ob.open)
     if (body === 0) continue
     const nextBody = Math.abs(next.close - next.open)
-    if ((nextBody - body) / ob.close < MIN_OB_RATIO) continue
+    if ((nextBody - body) / ob.close < MIN_OB_RATIO && nextBody <= body * 1.5) continue
 
     // Bullish OB: 빨간 캔들을 다음 초록 캔들이 몸통까지 덮음 (next.open은 OB 몸통 안 또는 아래에서 시작)
     if (ob.close < ob.open && next.open <= ob.open && next.close > ob.open) {
