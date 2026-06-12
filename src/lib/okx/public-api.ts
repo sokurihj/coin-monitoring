@@ -28,9 +28,10 @@ export const getLiquidations = (uly: string, limit = 20) =>
   })
 
 
-export const getCandles = (instId: string, bar = '1m', limit = 100) =>
+export const getCandles = (instId: string, bar = '1m', limit = 100, after?: number) =>
   okxFetch<RawCandle>('/api/v5/market/candles', {
     instId,
     bar,
     limit: String(limit),
+    ...(after !== undefined && { after: String(after) }),
   })

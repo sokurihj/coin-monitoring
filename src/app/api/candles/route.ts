@@ -25,7 +25,12 @@ export async function GET(req: NextRequest) {
   try {
     const instId = `${coin}-USDT-SWAP`
     const apiBar = UTC_BAR_MAP[bar] ?? bar
-    const raw = await getCandles(instId, apiBar, 300).catch(() => [])
+    const first = await getCandles(instId, apiBar, 300).catch(() => [])
+    const oldest = first.at(-1)
+    const second = oldest
+      ? await getCandles(instId, apiBar, 300, Number(oldest[0])).catch(() => [])
+      : []
+    const raw = [...first, ...second]
 
     const bars: CandleBar[] = raw
       .filter(c => Number(c[1]) > 0) // open=0인 빈 봉 제거
