@@ -50,7 +50,7 @@ export interface ICTSignal {
 }
 
 // 갭 크기가 가격의 0.3% 이상인 FVG만 유효
-const MIN_FVG_RATIO = 0.003
+const MIN_FVG_RATIO = 0.002
 // 엔겔핑 캔들 몸통과 OB 캔들 몸통의 차이가 가격의 0.3% 이상인 OB만 유효
 const MIN_OB_RATIO = 0.003
 
