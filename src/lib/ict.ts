@@ -49,8 +49,6 @@ export interface ICTSignal {
   reasons: string[]
 }
 
-// 갭 크기가 가격의 0.3% 이상인 FVG만 유효
-const MIN_FVG_RATIO = 0.002
 // 엔겔핑 캔들 몸통과 OB 캔들 몸통의 차이가 가격의 0.3% 이상인 OB만 유효
 const MIN_OB_RATIO = 0.003
 
@@ -62,13 +60,11 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
     const c1 = bars[i - 2]
     const c2 = bars[i - 1]
     const c3 = bars[i]
-    const refPrice = c2.close
 
     // Bullish FVG: 캔들1 고가 < 캔들3 저가
     if (c1.high < c3.low) {
       const top = c3.low
       const bottom = c1.high
-      if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
       const filled = bars.slice(i + 1).some(b => b.low <= bottom)
       fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled })
     }
@@ -77,7 +73,6 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
     if (c1.low > c3.high) {
       const top = c1.low
       const bottom = c3.high
-      if ((top - bottom) / refPrice < MIN_FVG_RATIO) continue
       const filled = bars.slice(i + 1).some(b => b.high >= top)
       fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled })
     }

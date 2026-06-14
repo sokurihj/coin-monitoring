@@ -24,7 +24,7 @@ ICT 분석 (클라이언트 사이드)
                                    #   OB: confirmedTs(엔겔핑 봉 마감 시점) 이후 봉에서만 신호 발생
                                    #   BOS/CHoCH는 신호 컨플루언스에서 제외 — 차트 라인 전용
                                    #   각 봉 평가 시 그 봉 당시 미충전/미위반/미스윕 레벨로 재계산 (차트 표시와 불일치 가능)
-                                   # detectFVGs() — MIN_FVG_RATIO=0.002 (갭이 가격의 0.2% 이상인 FVG만 유효), 마감된 봉만 c3로 사용
+                                   # detectFVGs() — 갭 크기 최소 기준 없음 (모든 FVG 감지), 마감된 봉만 c3로 사용
                                    #   filled: wick/body가 갭 반대 끝까지 도달 시 소멸 (bullish=low≤bottom, bearish=high≥top)
                                    # detectOrderBlocks() — 엔겔핑 기반: 다음 캔들이 현재 캔들 몸통을 완전히 덮을 때 OB 인정
                                    #   Bullish: next.open ≤ ob.open (OB 몸통 안 또는 아래 시작) && next.close > ob.open
