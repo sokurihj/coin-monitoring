@@ -1,6 +1,7 @@
 import { RawInstrument, RawTrade } from '@/types/okx'
 import { WhaleTier, WhaleTradeEvent } from '@/types/whale'
 import { CT_VAL_FALLBACK, WHALE_THRESHOLDS } from './constants'
+import { getSwapInstruments } from './okx/public-api'
 
 // instruments API 결과를 인메모리 캐시 (서버 프로세스 수명 동안 유지)
 let ctValCache: Map<string, number> | null = null
@@ -20,7 +21,14 @@ export function updateCtValCache(instruments: RawInstrument[]) {
   ctValCachedAt = now
 }
 
-function getCtVal(instId: string): number {
+// TTL 만료 시에만 OKX API 호출, 그 외엔 캐시 반환
+export async function ensureCtValCache(): Promise<void> {
+  if (ctValCache && Date.now() - ctValCachedAt < CT_VAL_TTL) return
+  const instruments = await getSwapInstruments().catch(() => [])
+  if (instruments.length > 0) updateCtValCache(instruments)
+}
+
+export function getCtVal(instId: string): number {
   return ctValCache?.get(instId) ?? CT_VAL_FALLBACK[instId] ?? 1
 }
 

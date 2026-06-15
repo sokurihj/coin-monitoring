@@ -1,34 +1,22 @@
 import { NextResponse } from 'next/server'
-import { getLiquidations, getSwapInstruments } from '@/lib/okx/public-api'
-import { CT_VAL_FALLBACK, MONITORED_COINS } from '@/lib/constants'
-import { RawInstrument } from '@/types/okx'
+import { getLiquidations } from '@/lib/okx/public-api'
+import { MONITORED_COINS } from '@/lib/constants'
 import { LiquidationEvent } from '@/types/whale'
+import { ensureCtValCache, getCtVal } from '@/lib/whale-detector'
 
 export const dynamic = 'force-dynamic'
 
 const MONITORED_SET = new Set(MONITORED_COINS.map(c => `${c}-USDT-SWAP`))
 
-function buildCtValMap(instruments: RawInstrument[]): Map<string, number> {
-  const map = new Map<string, number>()
-  for (const inst of instruments) {
-    if (inst.instType === 'SWAP' && inst.ctValCcy !== 'USD') {
-      map.set(inst.instId, Number(inst.ctVal))
-    }
-  }
-  return map
-}
-
 const ULY_LIST = MONITORED_COINS.map(c => `${c}-USDT`)
 
 export async function GET() {
   try {
-    const [liqResults, instData] = await Promise.all([
+    const [liqResults] = await Promise.all([
       Promise.all(ULY_LIST.map(uly => getLiquidations(uly, 20).catch(() => []))),
-      getSwapInstruments().catch(() => []),
+      ensureCtValCache(),
     ])
     const rawLiqs = liqResults.flat()
-
-    const ctValMap = buildCtValMap(instData)
     const events: LiquidationEvent[] = []
 
     for (const group of rawLiqs) {
@@ -36,7 +24,7 @@ export async function GET() {
       if (!instId || !MONITORED_SET.has(instId)) continue
 
       const coin = instId.replace('-USDT-SWAP', '')
-      const ctVal = ctValMap.get(instId) ?? CT_VAL_FALLBACK[instId] ?? 1
+      const ctVal = getCtVal(instId)
 
       for (const detail of group.details ?? []) {
         const price = Number(detail.bkPx)

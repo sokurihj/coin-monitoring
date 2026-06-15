@@ -1,33 +1,22 @@
 import { NextResponse } from 'next/server'
 import pLimit from 'p-limit'
-import { getSwapInstruments, getTrades } from '@/lib/okx/public-api'
-import { CT_VAL_FALLBACK, MONITORED_COINS } from '@/lib/constants'
-import { RawInstrument } from '@/types/okx'
+import { getTrades } from '@/lib/okx/public-api'
+import { MONITORED_COINS } from '@/lib/constants'
+import { ensureCtValCache, getCtVal } from '@/lib/whale-detector'
 
 export const dynamic = 'force-dynamic'
 
 const limit = pLimit(5)
 
-function buildCtValMap(instruments: RawInstrument[]): Map<string, number> {
-  const map = new Map<string, number>()
-  for (const inst of instruments) {
-    if (inst.instType === 'SWAP' && inst.ctValCcy !== 'USD') {
-      map.set(inst.instId, Number(inst.ctVal))
-    }
-  }
-  return map
-}
-
 export async function GET() {
   try {
-    const instData = await getSwapInstruments().catch(() => [])
-    const ctValMap = buildCtValMap(instData)
+    await ensureCtValCache()
 
     const snapshots = await Promise.all(
       MONITORED_COINS.map(coin =>
         limit(async () => {
           const instId = `${coin}-USDT-SWAP`
-          const ctVal = ctValMap.get(instId) ?? CT_VAL_FALLBACK[instId] ?? 1
+          const ctVal = getCtVal(instId)
           const trades = await getTrades(instId, 100).catch(() => [])
 
           let delta = 0
