@@ -436,9 +436,10 @@ export function CandleChart() {
       !range || (top >= currentPrice * (1 - range) && bottom <= currentPrice * (1 + range))
     const zones: ZoneBox[] = []
 
-    // FVG: 미충전 존 전체, 최근 4개
-    const fvgs = detectFVGs(bars).filter(f => !f.filled).slice(-4)
-    for (const fvg of fvgs) {
+    // FVG: 근접 필터 ON이면 최근 4개, OFF면 전체
+    const fvgs = detectFVGs(bars).filter(f => !f.filled)
+    const fvgsToShow = proximityFilter ? fvgs.slice(-4) : fvgs
+    for (const fvg of fvgsToShow) {
       if (!inRange(fvg.top, fvg.bottom)) continue
       zones.push({
         top: fvg.top,
@@ -450,9 +451,10 @@ export function CandleChart() {
       })
     }
 
-    // OB: 미위반 존 전체, 최근 4개 (allObs는 Breaker 계산에도 재사용)
+    // OB: 근접 필터 ON이면 최근 4개, OFF면 전체 (allObs는 Breaker 계산에도 재사용)
     const allObs = detectOrderBlocks(bars)
-    const obs = allObs.filter(o => !o.violated).slice(-4)
+    const allUnviolatedObs = allObs.filter(o => !o.violated)
+    const obs = proximityFilter ? allUnviolatedObs.slice(-4) : allUnviolatedObs
     for (const ob of obs) {
       if (!inRange(ob.top, ob.bottom)) continue
       zones.push({
@@ -465,8 +467,9 @@ export function CandleChart() {
       })
     }
 
-    // Breaker Block: 미소멸 존, 최근 4개 (allObs 재사용으로 재계산 방지)
-    const breakers = detectBreakerBlocks(bars, allObs).slice(-4)
+    // Breaker Block: 근접 필터 ON이면 최근 4개, OFF면 전체 (allObs 재사용으로 재계산 방지)
+    const allBreakers = detectBreakerBlocks(bars, allObs)
+    const breakers = proximityFilter ? allBreakers.slice(-4) : allBreakers
     for (const bb of breakers) {
       if (!inRange(bb.top, bb.bottom)) continue
       zones.push({
