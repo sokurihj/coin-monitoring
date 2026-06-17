@@ -434,13 +434,17 @@ export function CandleChart() {
     const range = proximityFilter ? PROXIMITY_RANGE[bar] : null
     const inRange = (top: number, bottom: number) =>
       !range || (top >= currentPrice * (1 - range) && bottom <= currentPrice * (1 + range))
+    // 현재가 대비 0.1% 미만 존은 노이즈로 제외
+    const MIN_ZONE_RATIO = 0.001
+    const hasMinSize = (top: number, bottom: number) =>
+      (top - bottom) / currentPrice >= MIN_ZONE_RATIO
     const zones: ZoneBox[] = []
 
     // FVG: 근접 필터 ON이면 최근 4개, OFF면 전체
     const fvgs = detectFVGs(bars).filter(f => !f.filled)
     const fvgsToShow = proximityFilter ? fvgs.slice(-4) : fvgs
     for (const fvg of fvgsToShow) {
-      if (!inRange(fvg.top, fvg.bottom)) continue
+      if (!inRange(fvg.top, fvg.bottom) || !hasMinSize(fvg.top, fvg.bottom)) continue
       zones.push({
         top: fvg.top,
         bottom: fvg.bottom,
@@ -456,7 +460,7 @@ export function CandleChart() {
     const allUnviolatedObs = allObs.filter(o => !o.violated)
     const obs = proximityFilter ? allUnviolatedObs.slice(-4) : allUnviolatedObs
     for (const ob of obs) {
-      if (!inRange(ob.top, ob.bottom)) continue
+      if (!inRange(ob.top, ob.bottom) || !hasMinSize(ob.top, ob.bottom)) continue
       zones.push({
         top: ob.top,
         bottom: ob.bottom,
@@ -471,7 +475,7 @@ export function CandleChart() {
     const allBreakers = detectBreakerBlocks(bars, allObs)
     const breakers = proximityFilter ? allBreakers.slice(-4) : allBreakers
     for (const bb of breakers) {
-      if (!inRange(bb.top, bb.bottom)) continue
+      if (!inRange(bb.top, bb.bottom) || !hasMinSize(bb.top, bb.bottom)) continue
       zones.push({
         top: bb.top,
         bottom: bb.bottom,
