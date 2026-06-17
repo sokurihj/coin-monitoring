@@ -65,7 +65,7 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
     if (c1.high < c3.low) {
       const top = c3.low
       const bottom = c1.high
-      const filled = bars.slice(i + 1).some(b => b.low <= bottom)
+      const filled = bars.slice(i + 1, -1).some(b => b.low <= bottom)
       fvgs.push({ type: 'bullish', top, bottom, ts: c2.ts, filled })
     }
 
@@ -73,7 +73,7 @@ export function detectFVGs(bars: CandleBar[]): FVG[] {
     if (c1.low > c3.high) {
       const top = c1.low
       const bottom = c3.high
-      const filled = bars.slice(i + 1).some(b => b.high >= top)
+      const filled = bars.slice(i + 1, -1).some(b => b.high >= top)
       fvgs.push({ type: 'bearish', top, bottom, ts: c2.ts, filled })
     }
   }
