@@ -68,7 +68,7 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── /api/limit-orders            # OKX 미체결 limit 주문 조회 → PendingLimitOrder[] (API 키 필요)
 
 클라이언트 (React Query 폴링)
-  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute
+  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute; refetchIntervalInBackground: false (탭 비활성 시 폴링 중단 — Vercel CPU 절감)
   └── hooks/useOIMovers.ts         # 30s 폴링
   └── hooks/useFundingRates.ts     # 10s 폴링
   └── hooks/useCandles.ts          # 15s 폴링
