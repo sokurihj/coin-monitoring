@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pLimit from 'p-limit'
-import { getSwapInstruments, getTrades } from '@/lib/okx/public-api'
-import { detectWhaleTrades, updateCtValCache } from '@/lib/whale-detector'
+import { getTrades } from '@/lib/okx/public-api'
+import { detectWhaleTrades, ensureCtValCache } from '@/lib/whale-detector'
 import { SWAP_INSTRUMENTS, WHALE_THRESHOLDS } from '@/lib/constants'
 import { hasRedisConfig, getWhaleTradesFromRedis } from '@/lib/redis'
 
@@ -20,8 +20,7 @@ export async function GET(req: NextRequest) {
       : SWAP_INSTRUMENTS
 
     // ctVal 캐시 갱신 (TTL 내면 no-op)
-    const instData = await getSwapInstruments().catch(() => [])
-    if (instData.length > 0) updateCtValCache(instData)
+    await ensureCtValCache()
 
     // OKX 실시간 조회
     const results = await Promise.all(
