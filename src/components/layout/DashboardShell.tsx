@@ -3,14 +3,11 @@ import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useWhaleStream } from '@/hooks/useWhaleStream'
 import { useCvd } from '@/hooks/useCvd'
-import { useLiquidations } from '@/hooks/useLiquidations'
 import { TopBar } from './TopBar'
 import { CoinTabBar } from './CoinTabBar'
 import { MarketOverviewStrip } from '../market/MarketOverviewStrip'
 import { OIMoversTable } from '../oi/OIMoversTable'
-import { SmartMoneyPanel } from '../smartmoney/SmartMoneyPanel'
 import { CvdChart } from '../market/CvdChart'
-import { LiquidationFeed } from '../market/LiquidationFeed'
 import { LeftPanelTabs } from './LeftPanelTabs'
 import { WhaleFeed } from '../whale/WhaleFeed'
 import { TradingJournal } from '../journal/TradingJournal'
@@ -54,13 +51,10 @@ export function DashboardShell() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('whale')
   const isMobile = useIsMobile()
   useCvd()
-  useLiquidations()
 
   const rightPanelContent = (
     <>
       <OIMoversTable />
-      <SmartMoneyPanel />
-      <LiquidationFeed />
       <CvdChart />
     </>
   )
@@ -141,9 +135,7 @@ export function DashboardShell() {
           >
             <div className="shrink-0 overflow-y-auto">
               <OIMoversTable />
-              <SmartMoneyPanel />
             </div>
-            <LiquidationFeed />
             <CvdChart />
           </div>
         </div>
