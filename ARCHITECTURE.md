@@ -7,7 +7,6 @@ OKX Public API (https://www.okx.com/api/v5/...)
   └── src/lib/okx/client.ts        # okxFetch() — 공통 fetch 래퍼
                                    # okxAuthFetch() — HMAC-SHA256 인증 래퍼
   └── src/lib/okx/public-api.ts    # 엔드포인트별 typed 함수들
-  └── src/lib/okx/smartmoney-api.ts  # SmartMoney 전용 API 함수들
   └── src/lib/okx/trading-api.ts  # 매매일지 전용 API 함수들 — getFills() / parseFill() / getAccountBalance() / getPositions() / getPendingLimitOrders()
                                    # parseFill: id = tradeId || billId (tradeId 우선, OKX API는 fillId 대신 billId 반환)
                                    # getPositions: /api/v5/account/positions + /api/v5/trade/orders-algo-pending 병렬 조회
@@ -52,28 +51,26 @@ ICT 분석 (클라이언트 사이드)
                                    # 존 표시: FVG 4개, OB 4개, BB 4개, BSL 2개, SSL 2개
                                    # 근접 필터는 CandleChart에서 적용 — 타임프레임별 ±% 범위 내 존만 렌더링 (primitive 자체는 필터 없음)
 
-Next.js Route Handlers (서버 사이드, force-dynamic)
-  └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[]
-  └── /api/oi-movers               # OI + 티커 + 펀딩비 집계 → OIMover[]
-  └── /api/funding                 # 펀딩비 목록 → FundingRateInfo[]
-  └── /api/tickers                 # 티커 목록
-  └── /api/candles                 # 캔들 데이터 → Bar[]
-  └── /api/cvd                     # CVD(누적 거래량 델타) 데이터
-  └── /api/liquidations            # 청산 이벤트 목록 (BTC/ETH/SOL uly 각각 조회, 코인별 최신 20건)
-  └── /api/smartmoney/signals      # 상위 트레이더 롱/숏 비율 (BTC, ETH, SOL)
-  └── /api/smartmoney/traders      # OKX 리더 트레이더 상위 5명 + 현재 포지션 병렬 조회
+Next.js Route Handlers (서버 사이드)
+  # 공용 데이터 라우트 — Cache-Control s-maxage 헤더로 Vercel CDN 캐싱 (force-dynamic 미사용)
+  └── /api/whale-feed              # 체결 조회 → 고래 감지 → WhaleTradeEvent[] (s-maxage=4)
+  └── /api/oi-movers               # OI + 티커 + 펀딩비 집계 → OIMover[] (s-maxage=25)
+  └── /api/funding                 # 펀딩비 목록 → FundingRateInfo[] (s-maxage=8)
+  └── /api/tickers                 # 티커 목록 (s-maxage=4)
+  └── /api/candles                 # 캔들 데이터 → Bar[] (s-maxage=12)
+  └── /api/cvd                     # CVD(누적 거래량 델타) 데이터 (s-maxage=4)
+  # 개인 데이터 라우트 — API 키 필요, 캐싱 없음
   └── /api/trading-log             # OKX 체결 내역 조회 → TradingFill[] (API 키 필요)
   └── /api/account-balance         # OKX 계좌 잔고 조회 → AccountBalance (총자산·가용증거금·사용증거금·미실현손익, API 키 필요)
   └── /api/positions               # OKX 현재 포지션 조회 → Position[] (포지션 TP/SL + 알고 주문 병합, API 키 필요)
   └── /api/limit-orders            # OKX 미체결 limit 주문 조회 → PendingLimitOrder[] (API 키 필요)
 
-클라이언트 (React Query 폴링)
-  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute; refetchIntervalInBackground: false (탭 비활성 시 폴링 중단 — Vercel CPU 절감)
+클라이언트 (React Query 폴링) — 전 hook refetchIntervalInBackground: false (탭 비활성 시 폴링 중단 — Vercel CPU 절감)
+  └── hooks/useWhaleStream.ts      # 5s 폴링 → whaleStore 누적 + frequencyStore recompute
   └── hooks/useOIMovers.ts         # 30s 폴링
   └── hooks/useFundingRates.ts     # 10s 폴링
   └── hooks/useCandles.ts          # 15s 폴링
   └── hooks/useCvd.ts              # 5s 폴링
-  └── hooks/useLiquidations.ts     # 10s 폴링
   └── hooks/useTickers.ts          # 5s 폴링
   └── hooks/useTradingLog.ts       # 60s 폴링
   └── hooks/useAccountBalance.ts   # 30s 폴링 — AccountBalance (API 키 없으면 available: false)
@@ -84,7 +81,6 @@ Next.js Route Handlers (서버 사이드, force-dynamic)
   └── store/whaleStore.ts          # Zustand + persist — 최신 200건 localStorage 영속화(key: whale-feed), tradeId 중복 제거, seenIds는 rehydration 시 재구성
   └── store/alertStore.ts          # Zustand + persist — 알림 설정 localStorage 저장
   └── store/cvdStore.ts            # Zustand — 코인별 CVD 누적
-  └── store/liquidationStore.ts    # Zustand — 청산 이벤트 누적 (최대 500건, id 중복 제거)
   └── store/frequencyStore.ts      # Zustand — 코인별 거래 빈도 spike 감지 (60s 슬라이딩 윈도우 vs 5분 평균 2배)
   └── store/tradingLogStore.ts     # Zustand + persist — 매매일지 태그(진입·익절·손절)/메모 localStorage 저장(key: trading-notes)
                                    # tags(진입근거)/tpTags(익절근거)/slTags(손절근거) 세 카테고리 독립 관리
@@ -130,10 +126,7 @@ app/dashboard/page.tsx
       │                            무한 스크롤 — IntersectionObserver로 스크롤 끝 도달 시 자동 로드 (nextCursor, billId 기준)
       │                            같은 ordId 부분체결 1행 통합 — 가격 가중평균, 수량·PnL 합산 (groupFillsByOrder)
       └── RightPanel (우, w-72)
-          ├── [shrink-0 스크롤 영역]
-          │   ├── OIMoversTable
-          │   └── SmartMoneyPanel  # TOP TRADER L/S + LEAD TRADERS (클릭 시 포지션 아코디언 — 진입가·추정청산가·레버리지)
-          ├── LiquidationFeed      # flex-1 — 코인 탭(ALL/BTC/ETH/SOL) + 금액 필터(ALL/10K+/50K+/100K+) + 청산가 표시
+          ├── [shrink-0 스크롤 영역] OIMoversTable
           └── CvdChart
 ```
 
@@ -146,10 +139,3 @@ app/dashboard/page.tsx
 - 단건 체결 기준 (여러 체결 합산 없음)
 
 **Rate limit 방어**: 모든 Route Handler에서 `pLimit(5)` 사용
-
-**SmartMoney** (`src/lib/okx/smartmoney-api.ts`):
-- `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` 환경변수 없으면 패널 비활성
-- 인증: HMAC-SHA256 서명 (`okxAuthFetch` in `client.ts`)
-- signals: `/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader` (1H, BTC/ETH/SOL)
-- traders: `/api/v5/orbit/public/leaderboard` (상위 5명) + `/api/v5/orbit/public/position-current` (각 트레이더 현재 포지션 병렬 조회)
-- 추정 청산가: USDT 마진 격리 기준 `avgPx × (1 ± 1/lever − 0.4%)` — OKX 공개 API 미제공으로 로컬 계산

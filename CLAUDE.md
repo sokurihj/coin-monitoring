@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 프로젝트 개요
 
 **Whale Radar** — OKX 선물(SWAP) 시장의 실시간 고래 거래 추적 대시보드.
-폴링 기반으로 고래 체결, OI 변동, 펀딩비, 스마트머니 신호를 모니터링한다.
+폴링 기반으로 고래 체결, OI 변동, 펀딩비를 모니터링한다.
 
 ## 명령어
 
@@ -33,9 +33,9 @@ fly status       # 머신 상태 확인
 | `WHALE_LARGE_USD` | 300000 | 대형 고래 임계값 |
 | `WHALE_MEDIUM_USD` | 100000 | 중형 고래 임계값 |
 | `NEXT_PUBLIC_POLL_INTERVAL` | 5000 | 폴링 주기 (ms) |
-| `OKX_API_KEY` | — | SmartMoney·매매일지 기능 활성화 (Read+Trade 권한 필요) |
-| `OKX_SECRET_KEY` | — | SmartMoney·매매일지 기능 활성화 |
-| `OKX_PASSPHRASE` | — | SmartMoney·매매일지 기능 활성화 |
+| `OKX_API_KEY` | — | 매매일지 기능 활성화 (Read+Trade 권한 필요) |
+| `OKX_SECRET_KEY` | — | 매매일지 기능 활성화 |
+| `OKX_PASSPHRASE` | — | 매매일지 기능 활성화 |
 | `TELEGRAM_BOT_TOKEN` | — | 텔레그램 알림 활성화 (BotFather 발급) |
 | `TELEGRAM_CHAT_ID` | — | 텔레그램 수신 채팅 ID |
 | `MAX_RUNTIME_MS` | — | 노티파이어 최대 실행 시간 ms (로컬/CI용, Fly.io에서는 미설정) |
