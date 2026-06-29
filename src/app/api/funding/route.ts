@@ -4,7 +4,6 @@ import { getFundingRate } from '@/lib/okx/public-api'
 import { FundingRateInfo } from '@/types/whale'
 import { SWAP_INSTRUMENTS } from '@/lib/constants'
 
-export const dynamic = 'force-dynamic'
 
 const limit = pLimit(5)
 
@@ -27,7 +26,7 @@ export async function GET() {
       )
     )
 
-    return NextResponse.json({ rates: rates.filter(Boolean), fetchedAt: Date.now() })
+    return NextResponse.json({ rates: rates.filter(Boolean), fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=8, stale-while-revalidate=20" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

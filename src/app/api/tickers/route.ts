@@ -3,7 +3,6 @@ import { getSwapTickers } from '@/lib/okx/public-api'
 import { TickerInfo } from '@/types/whale'
 import { MONITORED_COINS } from '@/lib/constants'
 
-export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
@@ -26,7 +25,7 @@ export async function GET() {
       })
       .sort((a, b) => MONITORED_COINS.indexOf(a.coin) - MONITORED_COINS.indexOf(b.coin))
 
-    return NextResponse.json({ tickers, fetchedAt: Date.now() })
+    return NextResponse.json({ tickers, fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=4, stale-while-revalidate=10" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

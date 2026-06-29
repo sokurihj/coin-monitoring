@@ -14,6 +14,7 @@ export function useFundingRates() {
     queryKey: ['funding-rates'],
     queryFn: fetchFunding,
     refetchInterval: POLL_INTERVAL * 2,
+    refetchIntervalInBackground: false, // 탭 비활성 시 폴링 중단 (Vercel CPU 절감)
     staleTime: 0,
   })
 }

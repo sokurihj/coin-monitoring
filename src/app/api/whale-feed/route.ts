@@ -5,7 +5,6 @@ import { detectWhaleTrades, ensureCtValCache } from '@/lib/whale-detector'
 import { SWAP_INSTRUMENTS, WHALE_THRESHOLDS } from '@/lib/constants'
 import { hasRedisConfig, getWhaleTradesFromRedis } from '@/lib/redis'
 
-export const dynamic = 'force-dynamic'
 
 const limit = pLimit(5) // OKX rate limit 방어
 
@@ -52,7 +51,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 200)
 
-    return NextResponse.json({ trades: sorted, fetchedAt: Date.now() })
+    return NextResponse.json({ trades: sorted, fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=4, stale-while-revalidate=10" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

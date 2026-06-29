@@ -4,7 +4,6 @@ import { getTrades } from '@/lib/okx/public-api'
 import { MONITORED_COINS } from '@/lib/constants'
 import { ensureCtValCache, getCtVal } from '@/lib/whale-detector'
 
-export const dynamic = 'force-dynamic'
 
 const limit = pLimit(5)
 
@@ -30,7 +29,7 @@ export async function GET() {
       )
     )
 
-    return NextResponse.json({ snapshots, fetchedAt: Date.now() })
+    return NextResponse.json({ snapshots, fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=4, stale-while-revalidate=10" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

@@ -18,6 +18,7 @@ export function usePositions() {
     queryKey: ['positions'],
     queryFn: fetchPositions,
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false, // 탭 비활성 시 폴링 중단 (Vercel CPU 절감)
     staleTime: 15_000,
   })
 }

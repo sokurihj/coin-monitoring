@@ -4,7 +4,6 @@ import { getFundingRate, getOpenInterest, getTicker } from '@/lib/okx/public-api
 import { OIMover } from '@/types/whale'
 import { SWAP_INSTRUMENTS } from '@/lib/constants'
 
-export const dynamic = 'force-dynamic'
 
 const limit = pLimit(5)
 
@@ -53,7 +52,7 @@ export async function GET(req: NextRequest) {
       .filter((m): m is OIMover => m !== null)
       .sort((a, b) => Math.abs(b.oiDeltaPct) - Math.abs(a.oiDeltaPct))
 
-    return NextResponse.json({ movers: valid, fetchedAt: Date.now() })
+    return NextResponse.json({ movers: valid, fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=25, stale-while-revalidate=60" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

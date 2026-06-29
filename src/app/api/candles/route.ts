@@ -3,7 +3,6 @@ import { getCandles } from '@/lib/okx/public-api'
 import { MONITORED_COINS } from '@/lib/constants'
 import { CandleBar } from '@/types/whale'
 
-export const dynamic = 'force-dynamic'
 
 const VALID_COINS = new Set(MONITORED_COINS)
 
@@ -46,7 +45,7 @@ export async function GET(req: NextRequest) {
     // OKX는 최신 캔들이 앞에 오므로 시간순 정렬
     bars.sort((a, b) => a.ts - b.ts)
 
-    return NextResponse.json({ bars, coin, bar, fetchedAt: Date.now() })
+    return NextResponse.json({ bars, coin, bar, fetchedAt: Date.now() }, { headers: { "Cache-Control": "public, s-maxage=12, stale-while-revalidate=30" } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
